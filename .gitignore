@@ -18,5 +18,8 @@ x86/
 *.ilk
 *.exe
 
+# Generated lexer test report
+lexer/tests/test_report.txt
+
 # Исполняемые файлы
 win_flex.exe
