@@ -1527,6 +1527,7 @@ char *yytext;
     #define YY_USER_ACTION updatePosition(yytext, yyleng);
 
     void printToken(const char* type, const std::string& value);
+    void finishLine();
     void lexerError(const std::string& message);
     void updatePosition(const char* text, int length);
     void appendText(const char* text, int length);
@@ -1551,10 +1552,11 @@ char *yytext;
     int interpolationDelimiterLength = 1;
     bool atFileStart = true;
     bool hadError = false;
+    bool lineHasCode = false;
     std::string literalBuffer;
-#line 1555 "lex.yy.cpp"
-
 #line 1557 "lex.yy.cpp"
+
+#line 1559 "lex.yy.cpp"
 
 #define INITIAL 0
 #define COMMENT 1
@@ -1782,10 +1784,10 @@ YY_DECL
 		}
 
 	{
-#line 85 "fsharp_lexer.l"
+#line 87 "fsharp_lexer.l"
 
 
-#line 1788 "lex.yy.cpp"
+#line 1790 "lex.yy.cpp"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -1851,12 +1853,12 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 87 "fsharp_lexer.l"
+#line 89 "fsharp_lexer.l"
 { printToken("SYMBOLIC_KEYWORD", yytext); }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 89 "fsharp_lexer.l"
+#line 91 "fsharp_lexer.l"
 {
                                     if (atFileStart && tokenLine == 1 && tokenColumn == 1) {
                                         atFileStart = false;
@@ -1868,46 +1870,47 @@ YY_RULE_SETUP
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 97 "fsharp_lexer.l"
-{ printToken("XML_DOC_COMMENT", yytext); }
+#line 99 "fsharp_lexer.l"
+{ atFileStart = false; }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 98 "fsharp_lexer.l"
-{ /* Line comment. */ }
+#line 100 "fsharp_lexer.l"
+{ atFileStart = false; }
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 99 "fsharp_lexer.l"
+#line 101 "fsharp_lexer.l"
 {
                                     commentDepth = 1;
                                     commentStartLine = tokenLine;
+                                    atFileStart = false;
                                     BEGIN(COMMENT);
                                 }
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 104 "fsharp_lexer.l"
+#line 107 "fsharp_lexer.l"
 { BEGIN(COMMENT_TRIPLE); }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 105 "fsharp_lexer.l"
+#line 108 "fsharp_lexer.l"
 { BEGIN(COMMENT_VERBATIM); }
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 106 "fsharp_lexer.l"
+#line 109 "fsharp_lexer.l"
 { BEGIN(COMMENT_STRING); }
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 107 "fsharp_lexer.l"
+#line 110 "fsharp_lexer.l"
 { commentDepth++; }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 108 "fsharp_lexer.l"
+#line 111 "fsharp_lexer.l"
 {
                                     commentDepth--;
                                     if (commentDepth == 0) {
@@ -1917,22 +1920,22 @@ YY_RULE_SETUP
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 114 "fsharp_lexer.l"
+#line 117 "fsharp_lexer.l"
 { /* Block comment content. */ }
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 115 "fsharp_lexer.l"
+#line 118 "fsharp_lexer.l"
 { /* Block comment content. */ }
 	YY_BREAK
 case 13:
 /* rule 13 can match eol */
 YY_RULE_SETUP
-#line 116 "fsharp_lexer.l"
-{ /* yylineno is maintained by flex. */ }
+#line 119 "fsharp_lexer.l"
+{ finishLine(); }
 	YY_BREAK
 case YY_STATE_EOF(COMMENT):
-#line 117 "fsharp_lexer.l"
+#line 120 "fsharp_lexer.l"
 {
                                     lexerError("unterminated block comment opened at line " + std::to_string(commentStartLine));
                                     yyterminate();
@@ -1940,117 +1943,117 @@ case YY_STATE_EOF(COMMENT):
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 121 "fsharp_lexer.l"
-{ /* Escaped character inside a comment string. */ }
+#line 124 "fsharp_lexer.l"
+{ /* Escaped comment-string character. */ }
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 122 "fsharp_lexer.l"
+#line 125 "fsharp_lexer.l"
 { BEGIN(COMMENT); }
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 123 "fsharp_lexer.l"
-{ /* Comment string content. */ }
+#line 126 "fsharp_lexer.l"
+{ /* Comment-string content. */ }
 	YY_BREAK
 case 17:
 /* rule 17 can match eol */
 YY_RULE_SETUP
-#line 124 "fsharp_lexer.l"
-{ /* Multiline strings are valid in F#. */ }
+#line 127 "fsharp_lexer.l"
+{ finishLine(); }
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 125 "fsharp_lexer.l"
-{ /* Any remaining string byte. */ }
+#line 128 "fsharp_lexer.l"
+{ /* Any remaining comment-string byte. */ }
 	YY_BREAK
 case YY_STATE_EOF(COMMENT_STRING):
-#line 126 "fsharp_lexer.l"
+#line 129 "fsharp_lexer.l"
 { lexerError("unterminated string in block comment"); yyterminate(); }
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 127 "fsharp_lexer.l"
+#line 130 "fsharp_lexer.l"
 { /* Escaped quote. */ }
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 128 "fsharp_lexer.l"
+#line 131 "fsharp_lexer.l"
 { BEGIN(COMMENT); }
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 129 "fsharp_lexer.l"
-{ /* Verbatim string content. */ }
+#line 132 "fsharp_lexer.l"
+{ /* Comment verbatim-string content. */ }
 	YY_BREAK
 case 22:
 /* rule 22 can match eol */
 YY_RULE_SETUP
-#line 130 "fsharp_lexer.l"
-{ /* Multiline string. */ }
+#line 133 "fsharp_lexer.l"
+{ finishLine(); }
 	YY_BREAK
 case YY_STATE_EOF(COMMENT_VERBATIM):
-#line 131 "fsharp_lexer.l"
+#line 134 "fsharp_lexer.l"
 { lexerError("unterminated verbatim string in block comment"); yyterminate(); }
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 132 "fsharp_lexer.l"
+#line 135 "fsharp_lexer.l"
 { BEGIN(COMMENT); }
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-#line 133 "fsharp_lexer.l"
-{ /* Triple string content. */ }
+#line 136 "fsharp_lexer.l"
+{ /* Comment triple-string content. */ }
 	YY_BREAK
 case 25:
 YY_RULE_SETUP
-#line 134 "fsharp_lexer.l"
-{ /* Quotes inside a triple string. */ }
+#line 137 "fsharp_lexer.l"
+{ /* Quotes inside a comment triple string. */ }
 	YY_BREAK
 case 26:
 /* rule 26 can match eol */
 YY_RULE_SETUP
-#line 135 "fsharp_lexer.l"
-{ /* Multiline string. */ }
+#line 138 "fsharp_lexer.l"
+{ finishLine(); }
 	YY_BREAK
 case YY_STATE_EOF(COMMENT_TRIPLE):
-#line 136 "fsharp_lexer.l"
+#line 139 "fsharp_lexer.l"
 { lexerError("unterminated triple string in block comment"); yyterminate(); }
 	YY_BREAK
 case 27:
 YY_RULE_SETUP
-#line 138 "fsharp_lexer.l"
+#line 141 "fsharp_lexer.l"
 { printToken("IF_DIRECTIVE", yytext); }
 	YY_BREAK
 case 28:
 YY_RULE_SETUP
-#line 139 "fsharp_lexer.l"
+#line 142 "fsharp_lexer.l"
 { printToken("ELSE_DIRECTIVE", yytext); }
 	YY_BREAK
 case 29:
 YY_RULE_SETUP
-#line 140 "fsharp_lexer.l"
+#line 143 "fsharp_lexer.l"
 { printToken("ENDIF_DIRECTIVE", yytext); }
 	YY_BREAK
 case 30:
 YY_RULE_SETUP
-#line 141 "fsharp_lexer.l"
+#line 144 "fsharp_lexer.l"
 { printToken("LINE_DIRECTIVE", yytext); }
 	YY_BREAK
 case 31:
 YY_RULE_SETUP
-#line 142 "fsharp_lexer.l"
+#line 145 "fsharp_lexer.l"
 { printToken("LINE_DIRECTIVE", yytext); }
 	YY_BREAK
 case 32:
 YY_RULE_SETUP
-#line 143 "fsharp_lexer.l"
+#line 146 "fsharp_lexer.l"
 { printToken("HASH_DIRECTIVE", yytext); }
 	YY_BREAK
 case 33:
 YY_RULE_SETUP
-#line 145 "fsharp_lexer.l"
+#line 148 "fsharp_lexer.l"
 {
                                     interpolationDelimiterLength = yyleng - 3;
                                     beginString(INTERPOLATED_TRIPLE, yytext);
@@ -2058,7 +2061,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 34:
 YY_RULE_SETUP
-#line 149 "fsharp_lexer.l"
+#line 152 "fsharp_lexer.l"
 {
                                     interpolationDelimiterLength = 1;
                                     beginString(INTERPOLATED_VERBATIM, yytext);
@@ -2066,7 +2069,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 35:
 YY_RULE_SETUP
-#line 153 "fsharp_lexer.l"
+#line 156 "fsharp_lexer.l"
 {
                                     interpolationDelimiterLength = 1;
                                     beginString(INTERPOLATED_STRING, yytext);
@@ -2074,118 +2077,118 @@ YY_RULE_SETUP
 	YY_BREAK
 case 36:
 YY_RULE_SETUP
-#line 157 "fsharp_lexer.l"
+#line 160 "fsharp_lexer.l"
 { beginString(TRIPLE_STRING, ""); }
 	YY_BREAK
 case 37:
 YY_RULE_SETUP
-#line 158 "fsharp_lexer.l"
+#line 161 "fsharp_lexer.l"
 { beginString(VERBATIM_STRING, ""); }
 	YY_BREAK
 case 38:
 YY_RULE_SETUP
-#line 159 "fsharp_lexer.l"
+#line 162 "fsharp_lexer.l"
 { beginString(STRING, ""); }
 	YY_BREAK
 case 39:
 YY_RULE_SETUP
-#line 161 "fsharp_lexer.l"
+#line 164 "fsharp_lexer.l"
 { finishString("BYTE_ARRAY_LITERAL"); BEGIN(INITIAL); }
 	YY_BREAK
 case 40:
 YY_RULE_SETUP
-#line 162 "fsharp_lexer.l"
+#line 165 "fsharp_lexer.l"
 { finishString("STRING_LITERAL"); BEGIN(INITIAL); }
 	YY_BREAK
 case 41:
 /* rule 41 can match eol */
 YY_RULE_SETUP
-#line 163 "fsharp_lexer.l"
+#line 166 "fsharp_lexer.l"
 { /* Escaped line break and indentation are omitted. */ }
 	YY_BREAK
 case 42:
 YY_RULE_SETUP
-#line 164 "fsharp_lexer.l"
+#line 167 "fsharp_lexer.l"
 { if (!appendEscape(yytext, yyleng)) lexerError("invalid escape sequence"); }
 	YY_BREAK
 case 43:
 YY_RULE_SETUP
-#line 165 "fsharp_lexer.l"
+#line 168 "fsharp_lexer.l"
 { if (!appendEscape(yytext, yyleng)) lexerError("decimal escape is outside 0..255"); }
 	YY_BREAK
 case 44:
 YY_RULE_SETUP
-#line 166 "fsharp_lexer.l"
+#line 169 "fsharp_lexer.l"
 { appendEscape(yytext, yyleng); }
 	YY_BREAK
 case 45:
 YY_RULE_SETUP
-#line 167 "fsharp_lexer.l"
+#line 170 "fsharp_lexer.l"
 { appendEscape(yytext, yyleng); }
 	YY_BREAK
 case 46:
 YY_RULE_SETUP
-#line 168 "fsharp_lexer.l"
+#line 171 "fsharp_lexer.l"
 { if (!appendEscape(yytext, yyleng)) lexerError("invalid UTF-32 escape"); }
 	YY_BREAK
 case 47:
 YY_RULE_SETUP
-#line 169 "fsharp_lexer.l"
+#line 172 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case 48:
 YY_RULE_SETUP
-#line 170 "fsharp_lexer.l"
+#line 173 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case 49:
 /* rule 49 can match eol */
 YY_RULE_SETUP
-#line 171 "fsharp_lexer.l"
+#line 174 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case 50:
 YY_RULE_SETUP
-#line 172 "fsharp_lexer.l"
+#line 175 "fsharp_lexer.l"
 { lexerError("incomplete escape sequence in string literal"); }
 	YY_BREAK
 case YY_STATE_EOF(STRING):
-#line 173 "fsharp_lexer.l"
+#line 176 "fsharp_lexer.l"
 { lexerError("unterminated string literal"); yyterminate(); }
 	YY_BREAK
 case 51:
 YY_RULE_SETUP
-#line 175 "fsharp_lexer.l"
+#line 178 "fsharp_lexer.l"
 { literalBuffer += '"'; }
 	YY_BREAK
 case 52:
 YY_RULE_SETUP
-#line 176 "fsharp_lexer.l"
+#line 179 "fsharp_lexer.l"
 { finishString("BYTE_ARRAY_LITERAL"); BEGIN(INITIAL); }
 	YY_BREAK
 case 53:
 YY_RULE_SETUP
-#line 177 "fsharp_lexer.l"
+#line 180 "fsharp_lexer.l"
 { finishString("VERBATIM_STRING_LITERAL"); BEGIN(INITIAL); }
 	YY_BREAK
 case 54:
 YY_RULE_SETUP
-#line 178 "fsharp_lexer.l"
+#line 181 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case 55:
 /* rule 55 can match eol */
 YY_RULE_SETUP
-#line 179 "fsharp_lexer.l"
+#line 182 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case YY_STATE_EOF(VERBATIM_STRING):
-#line 180 "fsharp_lexer.l"
+#line 183 "fsharp_lexer.l"
 { lexerError("unterminated verbatim string literal"); yyterminate(); }
 	YY_BREAK
 case 56:
 YY_RULE_SETUP
-#line 182 "fsharp_lexer.l"
+#line 185 "fsharp_lexer.l"
 {
                                     literalBuffer.append(static_cast<std::size_t>(yyleng - 3), '"');
                                     finishString("TRIPLE_STRING_LITERAL");
@@ -2194,27 +2197,27 @@ YY_RULE_SETUP
 	YY_BREAK
 case 57:
 YY_RULE_SETUP
-#line 187 "fsharp_lexer.l"
+#line 190 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case 58:
 YY_RULE_SETUP
-#line 188 "fsharp_lexer.l"
+#line 191 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case 59:
 /* rule 59 can match eol */
 YY_RULE_SETUP
-#line 189 "fsharp_lexer.l"
+#line 192 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case YY_STATE_EOF(TRIPLE_STRING):
-#line 190 "fsharp_lexer.l"
+#line 193 "fsharp_lexer.l"
 { lexerError("unterminated triple string literal"); yyterminate(); }
 	YY_BREAK
 case 60:
 YY_RULE_SETUP
-#line 192 "fsharp_lexer.l"
+#line 195 "fsharp_lexer.l"
 {
                                     if (interpolationDepth == 0) {
                                         finishString("INTERPOLATED_STRING_LITERAL");
@@ -2227,62 +2230,62 @@ YY_RULE_SETUP
 case 61:
 /* rule 61 can match eol */
 YY_RULE_SETUP
-#line 200 "fsharp_lexer.l"
+#line 203 "fsharp_lexer.l"
 { /* Escaped line continuation. */ }
 	YY_BREAK
 case 62:
 YY_RULE_SETUP
-#line 201 "fsharp_lexer.l"
+#line 204 "fsharp_lexer.l"
 { appendEscape(yytext, yyleng); }
 	YY_BREAK
 case 63:
 YY_RULE_SETUP
-#line 202 "fsharp_lexer.l"
+#line 205 "fsharp_lexer.l"
 { appendEscape(yytext, yyleng); }
 	YY_BREAK
 case 64:
 YY_RULE_SETUP
-#line 203 "fsharp_lexer.l"
+#line 206 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case 65:
 YY_RULE_SETUP
-#line 204 "fsharp_lexer.l"
+#line 207 "fsharp_lexer.l"
 { updateInterpolationDepth(yytext, yyleng, true); appendText(yytext, yyleng); }
 	YY_BREAK
 case 66:
 YY_RULE_SETUP
-#line 205 "fsharp_lexer.l"
+#line 208 "fsharp_lexer.l"
 { updateInterpolationDepth(yytext, yyleng, false); appendText(yytext, yyleng); }
 	YY_BREAK
 case 67:
 YY_RULE_SETUP
-#line 206 "fsharp_lexer.l"
+#line 209 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case 68:
 /* rule 68 can match eol */
 YY_RULE_SETUP
-#line 207 "fsharp_lexer.l"
+#line 210 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case 69:
 YY_RULE_SETUP
-#line 208 "fsharp_lexer.l"
+#line 211 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case YY_STATE_EOF(INTERPOLATED_STRING):
-#line 209 "fsharp_lexer.l"
+#line 212 "fsharp_lexer.l"
 { lexerError("unterminated interpolated string literal"); yyterminate(); }
 	YY_BREAK
 case 70:
 YY_RULE_SETUP
-#line 211 "fsharp_lexer.l"
+#line 214 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case 71:
 YY_RULE_SETUP
-#line 212 "fsharp_lexer.l"
+#line 215 "fsharp_lexer.l"
 {
                                     if (interpolationDepth == 0) {
                                         finishString("INTERPOLATED_VERBATIM_STRING_LITERAL");
@@ -2294,32 +2297,32 @@ YY_RULE_SETUP
 	YY_BREAK
 case 72:
 YY_RULE_SETUP
-#line 220 "fsharp_lexer.l"
+#line 223 "fsharp_lexer.l"
 { updateInterpolationDepth(yytext, yyleng, true); appendText(yytext, yyleng); }
 	YY_BREAK
 case 73:
 YY_RULE_SETUP
-#line 221 "fsharp_lexer.l"
+#line 224 "fsharp_lexer.l"
 { updateInterpolationDepth(yytext, yyleng, false); appendText(yytext, yyleng); }
 	YY_BREAK
 case 74:
 YY_RULE_SETUP
-#line 222 "fsharp_lexer.l"
+#line 225 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case 75:
 /* rule 75 can match eol */
 YY_RULE_SETUP
-#line 223 "fsharp_lexer.l"
+#line 226 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case YY_STATE_EOF(INTERPOLATED_VERBATIM):
-#line 224 "fsharp_lexer.l"
+#line 227 "fsharp_lexer.l"
 { lexerError("unterminated interpolated verbatim string literal"); yyterminate(); }
 	YY_BREAK
 case 76:
 YY_RULE_SETUP
-#line 226 "fsharp_lexer.l"
+#line 229 "fsharp_lexer.l"
 {
                                     if (interpolationDepth == 0) {
                                         literalBuffer.append(static_cast<std::size_t>(yyleng - 3), '"');
@@ -2332,102 +2335,102 @@ YY_RULE_SETUP
 	YY_BREAK
 case 77:
 YY_RULE_SETUP
-#line 235 "fsharp_lexer.l"
+#line 238 "fsharp_lexer.l"
 { updateInterpolationDepth(yytext, yyleng, true); appendText(yytext, yyleng); }
 	YY_BREAK
 case 78:
 YY_RULE_SETUP
-#line 236 "fsharp_lexer.l"
+#line 239 "fsharp_lexer.l"
 { updateInterpolationDepth(yytext, yyleng, false); appendText(yytext, yyleng); }
 	YY_BREAK
 case 79:
 YY_RULE_SETUP
-#line 237 "fsharp_lexer.l"
+#line 240 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case 80:
 YY_RULE_SETUP
-#line 238 "fsharp_lexer.l"
+#line 241 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case 81:
 /* rule 81 can match eol */
 YY_RULE_SETUP
-#line 239 "fsharp_lexer.l"
+#line 242 "fsharp_lexer.l"
 { appendText(yytext, yyleng); }
 	YY_BREAK
 case YY_STATE_EOF(INTERPOLATED_TRIPLE):
-#line 240 "fsharp_lexer.l"
+#line 243 "fsharp_lexer.l"
 { lexerError("unterminated interpolated triple string literal"); yyterminate(); }
 	YY_BREAK
 case 82:
 YY_RULE_SETUP
-#line 242 "fsharp_lexer.l"
+#line 245 "fsharp_lexer.l"
 { printCharacter(yytext, true); }
 	YY_BREAK
 case 83:
 YY_RULE_SETUP
-#line 243 "fsharp_lexer.l"
+#line 246 "fsharp_lexer.l"
 { printCharacter(yytext, true); }
 	YY_BREAK
 case 84:
 YY_RULE_SETUP
-#line 244 "fsharp_lexer.l"
+#line 247 "fsharp_lexer.l"
 { printCharacter(yytext, true); }
 	YY_BREAK
 case 85:
 YY_RULE_SETUP
-#line 245 "fsharp_lexer.l"
+#line 248 "fsharp_lexer.l"
 { printCharacter(yytext, true); }
 	YY_BREAK
 case 86:
 YY_RULE_SETUP
-#line 246 "fsharp_lexer.l"
+#line 249 "fsharp_lexer.l"
 { printCharacter(yytext, true); }
 	YY_BREAK
 case 87:
 YY_RULE_SETUP
-#line 247 "fsharp_lexer.l"
+#line 250 "fsharp_lexer.l"
 { printCharacter(yytext, false); }
 	YY_BREAK
 case 88:
 YY_RULE_SETUP
-#line 248 "fsharp_lexer.l"
+#line 251 "fsharp_lexer.l"
 { printCharacter(yytext, false); }
 	YY_BREAK
 case 89:
 YY_RULE_SETUP
-#line 249 "fsharp_lexer.l"
+#line 252 "fsharp_lexer.l"
 { printCharacter(yytext, false); }
 	YY_BREAK
 case 90:
 YY_RULE_SETUP
-#line 250 "fsharp_lexer.l"
+#line 253 "fsharp_lexer.l"
 { printCharacter(yytext, false); }
 	YY_BREAK
 case 91:
 YY_RULE_SETUP
-#line 251 "fsharp_lexer.l"
+#line 254 "fsharp_lexer.l"
 { printCharacter(yytext, false); }
 	YY_BREAK
 case 92:
 YY_RULE_SETUP
-#line 252 "fsharp_lexer.l"
+#line 255 "fsharp_lexer.l"
 { printCharacter(yytext, false); }
 	YY_BREAK
 case 93:
 YY_RULE_SETUP
-#line 253 "fsharp_lexer.l"
+#line 256 "fsharp_lexer.l"
 { lexerError("character literal must contain exactly one character"); }
 	YY_BREAK
 case 94:
 YY_RULE_SETUP
-#line 255 "fsharp_lexer.l"
+#line 258 "fsharp_lexer.l"
 { printToken("FLOAT32_LITERAL", yytext); }
 	YY_BREAK
 case 95:
 YY_RULE_SETUP
-#line 256 "fsharp_lexer.l"
+#line 259 "fsharp_lexer.l"
 { printToken("FLOAT64_LITERAL", yytext); }
 	YY_BREAK
 case 96:
@@ -2435,853 +2438,853 @@ case 96:
 (yy_c_buf_p) = yy_cp -= 2;
 YY_DO_BEFORE_ACTION; /* set up yytext again */
 YY_RULE_SETUP
-#line 257 "fsharp_lexer.l"
+#line 260 "fsharp_lexer.l"
 { printInteger(yytext, 10); }
 	YY_BREAK
 case 97:
 YY_RULE_SETUP
-#line 258 "fsharp_lexer.l"
+#line 261 "fsharp_lexer.l"
 { printReal(yytext, "FLOAT32_LITERAL"); }
 	YY_BREAK
 case 98:
 YY_RULE_SETUP
-#line 259 "fsharp_lexer.l"
+#line 262 "fsharp_lexer.l"
 { printReal(yytext, "FLOAT32_LITERAL"); }
 	YY_BREAK
 case 99:
 YY_RULE_SETUP
-#line 260 "fsharp_lexer.l"
+#line 263 "fsharp_lexer.l"
 { printReal(yytext, "FLOAT32_LITERAL"); }
 	YY_BREAK
 case 100:
 YY_RULE_SETUP
-#line 261 "fsharp_lexer.l"
+#line 264 "fsharp_lexer.l"
 { printReal(yytext, "DECIMAL_LITERAL"); }
 	YY_BREAK
 case 101:
 YY_RULE_SETUP
-#line 262 "fsharp_lexer.l"
+#line 265 "fsharp_lexer.l"
 { printReal(yytext, "DECIMAL_LITERAL"); }
 	YY_BREAK
 case 102:
 YY_RULE_SETUP
-#line 263 "fsharp_lexer.l"
+#line 266 "fsharp_lexer.l"
 { printReal(yytext, "DECIMAL_LITERAL"); }
 	YY_BREAK
 case 103:
 YY_RULE_SETUP
-#line 264 "fsharp_lexer.l"
+#line 267 "fsharp_lexer.l"
 { printReal(yytext, "FLOAT64_LITERAL"); }
 	YY_BREAK
 case 104:
 YY_RULE_SETUP
-#line 265 "fsharp_lexer.l"
+#line 268 "fsharp_lexer.l"
 { printReal(yytext, "FLOAT64_LITERAL"); }
 	YY_BREAK
 case 105:
 YY_RULE_SETUP
-#line 266 "fsharp_lexer.l"
+#line 269 "fsharp_lexer.l"
 { printInteger(yytext, 16); }
 	YY_BREAK
 case 106:
 YY_RULE_SETUP
-#line 267 "fsharp_lexer.l"
+#line 270 "fsharp_lexer.l"
 { printInteger(yytext, 8); }
 	YY_BREAK
 case 107:
 YY_RULE_SETUP
-#line 268 "fsharp_lexer.l"
+#line 271 "fsharp_lexer.l"
 { printInteger(yytext, 2); }
 	YY_BREAK
 case 108:
 YY_RULE_SETUP
-#line 269 "fsharp_lexer.l"
+#line 272 "fsharp_lexer.l"
 { printInteger(yytext, 10); }
 	YY_BREAK
 case 109:
 YY_RULE_SETUP
-#line 270 "fsharp_lexer.l"
+#line 273 "fsharp_lexer.l"
 { lexerError("invalid hexadecimal integer literal: " + std::string(yytext)); }
 	YY_BREAK
 case 110:
 YY_RULE_SETUP
-#line 271 "fsharp_lexer.l"
+#line 274 "fsharp_lexer.l"
 { lexerError("invalid octal integer literal: " + std::string(yytext)); }
 	YY_BREAK
 case 111:
 YY_RULE_SETUP
-#line 272 "fsharp_lexer.l"
+#line 275 "fsharp_lexer.l"
 { lexerError("invalid binary integer literal: " + std::string(yytext)); }
 	YY_BREAK
 case 112:
 YY_RULE_SETUP
-#line 273 "fsharp_lexer.l"
+#line 276 "fsharp_lexer.l"
 { lexerError("invalid or reserved numeric suffix: " + std::string(yytext)); }
 	YY_BREAK
 case 113:
 YY_RULE_SETUP
-#line 274 "fsharp_lexer.l"
+#line 277 "fsharp_lexer.l"
 { lexerError("invalid decimal integer literal or suffix: " + std::string(yytext)); }
 	YY_BREAK
 case 114:
 YY_RULE_SETUP
-#line 276 "fsharp_lexer.l"
+#line 279 "fsharp_lexer.l"
 { printToken("KW_LET_BANG", yytext); }
 	YY_BREAK
 case 115:
 YY_RULE_SETUP
-#line 277 "fsharp_lexer.l"
+#line 280 "fsharp_lexer.l"
 { printToken("KW_USE_BANG", yytext); }
 	YY_BREAK
 case 116:
 YY_RULE_SETUP
-#line 278 "fsharp_lexer.l"
+#line 281 "fsharp_lexer.l"
 { printToken("KW_DO_BANG", yytext); }
 	YY_BREAK
 case 117:
 YY_RULE_SETUP
-#line 279 "fsharp_lexer.l"
+#line 282 "fsharp_lexer.l"
 { printToken("KW_YIELD_BANG", yytext); }
 	YY_BREAK
 case 118:
 YY_RULE_SETUP
-#line 280 "fsharp_lexer.l"
+#line 283 "fsharp_lexer.l"
 { printToken("KW_RETURN_BANG", yytext); }
 	YY_BREAK
 case 119:
 YY_RULE_SETUP
-#line 281 "fsharp_lexer.l"
+#line 284 "fsharp_lexer.l"
 { printToken("KW_MATCH_BANG", yytext); }
 	YY_BREAK
 case 120:
 YY_RULE_SETUP
-#line 283 "fsharp_lexer.l"
+#line 286 "fsharp_lexer.l"
 { printToken("SOURCE_DIRECTORY_MACRO", yytext); }
 	YY_BREAK
 case 121:
 YY_RULE_SETUP
-#line 284 "fsharp_lexer.l"
+#line 287 "fsharp_lexer.l"
 { printToken("SOURCE_FILE_MACRO", yytext); }
 	YY_BREAK
 case 122:
 YY_RULE_SETUP
-#line 285 "fsharp_lexer.l"
+#line 288 "fsharp_lexer.l"
 { printToken("LINE_MACRO", std::to_string(tokenLine)); }
 	YY_BREAK
 case 123:
 YY_RULE_SETUP
-#line 287 "fsharp_lexer.l"
+#line 290 "fsharp_lexer.l"
 { printToken("KW_ABSTRACT", yytext); }
 	YY_BREAK
 case 124:
 YY_RULE_SETUP
-#line 288 "fsharp_lexer.l"
+#line 291 "fsharp_lexer.l"
 { printToken("KW_AND", yytext); }
 	YY_BREAK
 case 125:
 YY_RULE_SETUP
-#line 289 "fsharp_lexer.l"
+#line 292 "fsharp_lexer.l"
 { printToken("KW_AS", yytext); }
 	YY_BREAK
 case 126:
 YY_RULE_SETUP
-#line 290 "fsharp_lexer.l"
+#line 293 "fsharp_lexer.l"
 { printToken("KW_ASSERT", yytext); }
 	YY_BREAK
 case 127:
 YY_RULE_SETUP
-#line 291 "fsharp_lexer.l"
+#line 294 "fsharp_lexer.l"
 { printToken("KW_BASE", yytext); }
 	YY_BREAK
 case 128:
 YY_RULE_SETUP
-#line 292 "fsharp_lexer.l"
+#line 295 "fsharp_lexer.l"
 { printToken("KW_BEGIN", yytext); }
 	YY_BREAK
 case 129:
 YY_RULE_SETUP
-#line 293 "fsharp_lexer.l"
+#line 296 "fsharp_lexer.l"
 { printToken("KW_CLASS", yytext); }
 	YY_BREAK
 case 130:
 YY_RULE_SETUP
-#line 294 "fsharp_lexer.l"
+#line 297 "fsharp_lexer.l"
 { printToken("KW_CONST", yytext); }
 	YY_BREAK
 case 131:
 YY_RULE_SETUP
-#line 295 "fsharp_lexer.l"
+#line 298 "fsharp_lexer.l"
 { printToken("KW_DEFAULT", yytext); }
 	YY_BREAK
 case 132:
 YY_RULE_SETUP
-#line 296 "fsharp_lexer.l"
+#line 299 "fsharp_lexer.l"
 { printToken("KW_DELEGATE", yytext); }
 	YY_BREAK
 case 133:
 YY_RULE_SETUP
-#line 297 "fsharp_lexer.l"
+#line 300 "fsharp_lexer.l"
 { printToken("KW_DO", yytext); }
 	YY_BREAK
 case 134:
 YY_RULE_SETUP
-#line 298 "fsharp_lexer.l"
+#line 301 "fsharp_lexer.l"
 { printToken("KW_DONE", yytext); }
 	YY_BREAK
 case 135:
 YY_RULE_SETUP
-#line 299 "fsharp_lexer.l"
+#line 302 "fsharp_lexer.l"
 { printToken("KW_DOWNCAST", yytext); }
 	YY_BREAK
 case 136:
 YY_RULE_SETUP
-#line 300 "fsharp_lexer.l"
+#line 303 "fsharp_lexer.l"
 { printToken("KW_DOWNTO", yytext); }
 	YY_BREAK
 case 137:
 YY_RULE_SETUP
-#line 301 "fsharp_lexer.l"
+#line 304 "fsharp_lexer.l"
 { printToken("KW_ELIF", yytext); }
 	YY_BREAK
 case 138:
 YY_RULE_SETUP
-#line 302 "fsharp_lexer.l"
+#line 305 "fsharp_lexer.l"
 { printToken("KW_ELSE", yytext); }
 	YY_BREAK
 case 139:
 YY_RULE_SETUP
-#line 303 "fsharp_lexer.l"
+#line 306 "fsharp_lexer.l"
 { printToken("KW_END", yytext); }
 	YY_BREAK
 case 140:
 YY_RULE_SETUP
-#line 304 "fsharp_lexer.l"
+#line 307 "fsharp_lexer.l"
 { printToken("KW_EXCEPTION", yytext); }
 	YY_BREAK
 case 141:
 YY_RULE_SETUP
-#line 305 "fsharp_lexer.l"
+#line 308 "fsharp_lexer.l"
 { printToken("KW_EXTERN", yytext); }
 	YY_BREAK
 case 142:
 YY_RULE_SETUP
-#line 306 "fsharp_lexer.l"
+#line 309 "fsharp_lexer.l"
 { printToken("BOOL_LITERAL", "false"); }
 	YY_BREAK
 case 143:
 YY_RULE_SETUP
-#line 307 "fsharp_lexer.l"
+#line 310 "fsharp_lexer.l"
 { printToken("KW_FINALLY", yytext); }
 	YY_BREAK
 case 144:
 YY_RULE_SETUP
-#line 308 "fsharp_lexer.l"
+#line 311 "fsharp_lexer.l"
 { printToken("KW_FIXED", yytext); }
 	YY_BREAK
 case 145:
 YY_RULE_SETUP
-#line 309 "fsharp_lexer.l"
+#line 312 "fsharp_lexer.l"
 { printToken("KW_FOR", yytext); }
 	YY_BREAK
 case 146:
 YY_RULE_SETUP
-#line 310 "fsharp_lexer.l"
+#line 313 "fsharp_lexer.l"
 { printToken("KW_FUN", yytext); }
 	YY_BREAK
 case 147:
 YY_RULE_SETUP
-#line 311 "fsharp_lexer.l"
+#line 314 "fsharp_lexer.l"
 { printToken("KW_FUNCTION", yytext); }
 	YY_BREAK
 case 148:
 YY_RULE_SETUP
-#line 312 "fsharp_lexer.l"
+#line 315 "fsharp_lexer.l"
 { printToken("KW_GLOBAL", yytext); }
 	YY_BREAK
 case 149:
 YY_RULE_SETUP
-#line 313 "fsharp_lexer.l"
+#line 316 "fsharp_lexer.l"
 { printToken("KW_IF", yytext); }
 	YY_BREAK
 case 150:
 YY_RULE_SETUP
-#line 314 "fsharp_lexer.l"
+#line 317 "fsharp_lexer.l"
 { printToken("KW_IN", yytext); }
 	YY_BREAK
 case 151:
 YY_RULE_SETUP
-#line 315 "fsharp_lexer.l"
+#line 318 "fsharp_lexer.l"
 { printToken("KW_INHERIT", yytext); }
 	YY_BREAK
 case 152:
 YY_RULE_SETUP
-#line 316 "fsharp_lexer.l"
+#line 319 "fsharp_lexer.l"
 { printToken("KW_INLINE", yytext); }
 	YY_BREAK
 case 153:
 YY_RULE_SETUP
-#line 317 "fsharp_lexer.l"
+#line 320 "fsharp_lexer.l"
 { printToken("KW_INTERFACE", yytext); }
 	YY_BREAK
 case 154:
 YY_RULE_SETUP
-#line 318 "fsharp_lexer.l"
+#line 321 "fsharp_lexer.l"
 { printToken("KW_INTERNAL", yytext); }
 	YY_BREAK
 case 155:
 YY_RULE_SETUP
-#line 319 "fsharp_lexer.l"
+#line 322 "fsharp_lexer.l"
 { printToken("KW_LAZY", yytext); }
 	YY_BREAK
 case 156:
 YY_RULE_SETUP
-#line 320 "fsharp_lexer.l"
+#line 323 "fsharp_lexer.l"
 { printToken("KW_LET", yytext); }
 	YY_BREAK
 case 157:
 YY_RULE_SETUP
-#line 321 "fsharp_lexer.l"
+#line 324 "fsharp_lexer.l"
 { printToken("KW_MATCH", yytext); }
 	YY_BREAK
 case 158:
 YY_RULE_SETUP
-#line 322 "fsharp_lexer.l"
+#line 325 "fsharp_lexer.l"
 { printToken("KW_MEMBER", yytext); }
 	YY_BREAK
 case 159:
 YY_RULE_SETUP
-#line 323 "fsharp_lexer.l"
+#line 326 "fsharp_lexer.l"
 { printToken("KW_MODULE", yytext); }
 	YY_BREAK
 case 160:
 YY_RULE_SETUP
-#line 324 "fsharp_lexer.l"
+#line 327 "fsharp_lexer.l"
 { printToken("KW_MUTABLE", yytext); }
 	YY_BREAK
 case 161:
 YY_RULE_SETUP
-#line 325 "fsharp_lexer.l"
+#line 328 "fsharp_lexer.l"
 { printToken("KW_NAMESPACE", yytext); }
 	YY_BREAK
 case 162:
 YY_RULE_SETUP
-#line 326 "fsharp_lexer.l"
+#line 329 "fsharp_lexer.l"
 { printToken("KW_NEW", yytext); }
 	YY_BREAK
 case 163:
 YY_RULE_SETUP
-#line 327 "fsharp_lexer.l"
+#line 330 "fsharp_lexer.l"
 { printToken("NULL_LITERAL", yytext); }
 	YY_BREAK
 case 164:
 YY_RULE_SETUP
-#line 328 "fsharp_lexer.l"
+#line 331 "fsharp_lexer.l"
 { printToken("KW_OF", yytext); }
 	YY_BREAK
 case 165:
 YY_RULE_SETUP
-#line 329 "fsharp_lexer.l"
+#line 332 "fsharp_lexer.l"
 { printToken("KW_OPEN", yytext); }
 	YY_BREAK
 case 166:
 YY_RULE_SETUP
-#line 330 "fsharp_lexer.l"
+#line 333 "fsharp_lexer.l"
 { printToken("KW_OR", yytext); }
 	YY_BREAK
 case 167:
 YY_RULE_SETUP
-#line 331 "fsharp_lexer.l"
+#line 334 "fsharp_lexer.l"
 { printToken("KW_OVERRIDE", yytext); }
 	YY_BREAK
 case 168:
 YY_RULE_SETUP
-#line 332 "fsharp_lexer.l"
+#line 335 "fsharp_lexer.l"
 { printToken("KW_PRIVATE", yytext); }
 	YY_BREAK
 case 169:
 YY_RULE_SETUP
-#line 333 "fsharp_lexer.l"
+#line 336 "fsharp_lexer.l"
 { printToken("KW_PUBLIC", yytext); }
 	YY_BREAK
 case 170:
 YY_RULE_SETUP
-#line 334 "fsharp_lexer.l"
+#line 337 "fsharp_lexer.l"
 { printToken("KW_REC", yytext); }
 	YY_BREAK
 case 171:
 YY_RULE_SETUP
-#line 335 "fsharp_lexer.l"
+#line 338 "fsharp_lexer.l"
 { printToken("KW_RETURN", yytext); }
 	YY_BREAK
 case 172:
 YY_RULE_SETUP
-#line 336 "fsharp_lexer.l"
+#line 339 "fsharp_lexer.l"
 { printToken("KW_SIG", yytext); }
 	YY_BREAK
 case 173:
 YY_RULE_SETUP
-#line 337 "fsharp_lexer.l"
+#line 340 "fsharp_lexer.l"
 { printToken("KW_STATIC", yytext); }
 	YY_BREAK
 case 174:
 YY_RULE_SETUP
-#line 338 "fsharp_lexer.l"
+#line 341 "fsharp_lexer.l"
 { printToken("KW_STRUCT", yytext); }
 	YY_BREAK
 case 175:
 YY_RULE_SETUP
-#line 339 "fsharp_lexer.l"
+#line 342 "fsharp_lexer.l"
 { printToken("KW_THEN", yytext); }
 	YY_BREAK
 case 176:
 YY_RULE_SETUP
-#line 340 "fsharp_lexer.l"
+#line 343 "fsharp_lexer.l"
 { printToken("KW_TO", yytext); }
 	YY_BREAK
 case 177:
 YY_RULE_SETUP
-#line 341 "fsharp_lexer.l"
+#line 344 "fsharp_lexer.l"
 { printToken("BOOL_LITERAL", "true"); }
 	YY_BREAK
 case 178:
 YY_RULE_SETUP
-#line 342 "fsharp_lexer.l"
+#line 345 "fsharp_lexer.l"
 { printToken("KW_TRY", yytext); }
 	YY_BREAK
 case 179:
 YY_RULE_SETUP
-#line 343 "fsharp_lexer.l"
+#line 346 "fsharp_lexer.l"
 { printToken("KW_TYPE", yytext); }
 	YY_BREAK
 case 180:
 YY_RULE_SETUP
-#line 344 "fsharp_lexer.l"
+#line 347 "fsharp_lexer.l"
 { printToken("KW_UPCAST", yytext); }
 	YY_BREAK
 case 181:
 YY_RULE_SETUP
-#line 345 "fsharp_lexer.l"
+#line 348 "fsharp_lexer.l"
 { printToken("KW_USE", yytext); }
 	YY_BREAK
 case 182:
 YY_RULE_SETUP
-#line 346 "fsharp_lexer.l"
+#line 349 "fsharp_lexer.l"
 { printToken("KW_VAL", yytext); }
 	YY_BREAK
 case 183:
 YY_RULE_SETUP
-#line 347 "fsharp_lexer.l"
+#line 350 "fsharp_lexer.l"
 { printToken("KW_VOID", yytext); }
 	YY_BREAK
 case 184:
 YY_RULE_SETUP
-#line 348 "fsharp_lexer.l"
+#line 351 "fsharp_lexer.l"
 { printToken("KW_WHEN", yytext); }
 	YY_BREAK
 case 185:
 YY_RULE_SETUP
-#line 349 "fsharp_lexer.l"
+#line 352 "fsharp_lexer.l"
 { printToken("KW_WHILE", yytext); }
 	YY_BREAK
 case 186:
 YY_RULE_SETUP
-#line 350 "fsharp_lexer.l"
+#line 353 "fsharp_lexer.l"
 { printToken("KW_WITH", yytext); }
 	YY_BREAK
 case 187:
 YY_RULE_SETUP
-#line 351 "fsharp_lexer.l"
+#line 354 "fsharp_lexer.l"
 { printToken("KW_YIELD", yytext); }
 	YY_BREAK
 case 188:
 YY_RULE_SETUP
-#line 353 "fsharp_lexer.l"
+#line 356 "fsharp_lexer.l"
 { printToken("RESERVED_KEYWORD", yytext); }
 	YY_BREAK
 case 189:
 YY_RULE_SETUP
-#line 354 "fsharp_lexer.l"
+#line 357 "fsharp_lexer.l"
 { printToken("RESERVED_ML_KEYWORD", yytext); }
 	YY_BREAK
 case 190:
 /* rule 190 can match eol */
 YY_RULE_SETUP
-#line 356 "fsharp_lexer.l"
+#line 359 "fsharp_lexer.l"
 { printBacktickIdentifier(yytext); }
 	YY_BREAK
 case 191:
 YY_RULE_SETUP
-#line 357 "fsharp_lexer.l"
+#line 360 "fsharp_lexer.l"
 { lexerError("unterminated backtick identifier"); }
 	YY_BREAK
 case 192:
 YY_RULE_SETUP
-#line 358 "fsharp_lexer.l"
+#line 361 "fsharp_lexer.l"
 { printToken("RESERVED_IDENTIFIER_FORM", yytext); }
 	YY_BREAK
 case 193:
 YY_RULE_SETUP
-#line 359 "fsharp_lexer.l"
+#line 362 "fsharp_lexer.l"
 { printToken("WILDCARD", yytext); }
 	YY_BREAK
 case 194:
 YY_RULE_SETUP
-#line 360 "fsharp_lexer.l"
+#line 363 "fsharp_lexer.l"
 { printToken("IDENTIFIER", yytext); }
 	YY_BREAK
 case 195:
 YY_RULE_SETUP
-#line 362 "fsharp_lexer.l"
+#line 365 "fsharp_lexer.l"
 { printToken("UNTYPED_QUOTATION_START", yytext); }
 	YY_BREAK
 case 196:
 YY_RULE_SETUP
-#line 363 "fsharp_lexer.l"
+#line 366 "fsharp_lexer.l"
 { printToken("UNTYPED_QUOTATION_END", yytext); }
 	YY_BREAK
 case 197:
 YY_RULE_SETUP
-#line 364 "fsharp_lexer.l"
+#line 367 "fsharp_lexer.l"
 { printToken("TYPED_QUOTATION_START", yytext); }
 	YY_BREAK
 case 198:
 YY_RULE_SETUP
-#line 365 "fsharp_lexer.l"
+#line 368 "fsharp_lexer.l"
 { printToken("TYPED_QUOTATION_END", yytext); }
 	YY_BREAK
 case 199:
 YY_RULE_SETUP
-#line 366 "fsharp_lexer.l"
+#line 369 "fsharp_lexer.l"
 { printToken("OP_DOWNCAST", yytext); }
 	YY_BREAK
 case 200:
 YY_RULE_SETUP
-#line 367 "fsharp_lexer.l"
+#line 370 "fsharp_lexer.l"
 { printToken("OP_TYPE_TEST", yytext); }
 	YY_BREAK
 case 201:
 YY_RULE_SETUP
-#line 368 "fsharp_lexer.l"
+#line 371 "fsharp_lexer.l"
 { printToken("OP_UPCAST", yytext); }
 	YY_BREAK
 case 202:
 YY_RULE_SETUP
-#line 369 "fsharp_lexer.l"
+#line 372 "fsharp_lexer.l"
 { printToken("OP_PIPE3_RIGHT", yytext); }
 	YY_BREAK
 case 203:
 YY_RULE_SETUP
-#line 370 "fsharp_lexer.l"
+#line 373 "fsharp_lexer.l"
 { printToken("OP_PIPE2_RIGHT", yytext); }
 	YY_BREAK
 case 204:
 YY_RULE_SETUP
-#line 371 "fsharp_lexer.l"
+#line 374 "fsharp_lexer.l"
 { printToken("OP_PIPE_RIGHT", yytext); }
 	YY_BREAK
 case 205:
 YY_RULE_SETUP
-#line 372 "fsharp_lexer.l"
+#line 375 "fsharp_lexer.l"
 { printToken("OP_PIPE3_LEFT", yytext); }
 	YY_BREAK
 case 206:
 YY_RULE_SETUP
-#line 373 "fsharp_lexer.l"
+#line 376 "fsharp_lexer.l"
 { printToken("OP_PIPE2_LEFT", yytext); }
 	YY_BREAK
 case 207:
 YY_RULE_SETUP
-#line 374 "fsharp_lexer.l"
+#line 377 "fsharp_lexer.l"
 { printToken("OP_PIPE_LEFT", yytext); }
 	YY_BREAK
 case 208:
 YY_RULE_SETUP
-#line 375 "fsharp_lexer.l"
+#line 378 "fsharp_lexer.l"
 { printToken("OP_BIT_AND", yytext); }
 	YY_BREAK
 case 209:
 YY_RULE_SETUP
-#line 376 "fsharp_lexer.l"
+#line 379 "fsharp_lexer.l"
 { printToken("OP_BIT_OR", yytext); }
 	YY_BREAK
 case 210:
 YY_RULE_SETUP
-#line 377 "fsharp_lexer.l"
+#line 380 "fsharp_lexer.l"
 { printToken("OP_BIT_XOR", yytext); }
 	YY_BREAK
 case 211:
 YY_RULE_SETUP
-#line 378 "fsharp_lexer.l"
+#line 381 "fsharp_lexer.l"
 { printToken("OP_BIT_NOT", yytext); }
 	YY_BREAK
 case 212:
 YY_RULE_SETUP
-#line 379 "fsharp_lexer.l"
+#line 382 "fsharp_lexer.l"
 { printToken("OP_SHIFT_LEFT", yytext); }
 	YY_BREAK
 case 213:
 YY_RULE_SETUP
-#line 380 "fsharp_lexer.l"
+#line 383 "fsharp_lexer.l"
 { printToken("OP_SHIFT_RIGHT", yytext); }
 	YY_BREAK
 case 214:
 YY_RULE_SETUP
-#line 381 "fsharp_lexer.l"
+#line 384 "fsharp_lexer.l"
 { printToken("OP_COMPOSE_RIGHT", yytext); }
 	YY_BREAK
 case 215:
 YY_RULE_SETUP
-#line 382 "fsharp_lexer.l"
+#line 385 "fsharp_lexer.l"
 { printToken("OP_COMPOSE_LEFT", yytext); }
 	YY_BREAK
 case 216:
 YY_RULE_SETUP
-#line 383 "fsharp_lexer.l"
+#line 386 "fsharp_lexer.l"
 { printToken("ARROW", yytext); }
 	YY_BREAK
 case 217:
 YY_RULE_SETUP
-#line 384 "fsharp_lexer.l"
+#line 387 "fsharp_lexer.l"
 { printToken("OP_ASSIGN", yytext); }
 	YY_BREAK
 case 218:
 YY_RULE_SETUP
-#line 385 "fsharp_lexer.l"
+#line 388 "fsharp_lexer.l"
 { printToken("DYNAMIC_SET_OPERATOR", yytext); }
 	YY_BREAK
 case 219:
 YY_RULE_SETUP
-#line 386 "fsharp_lexer.l"
+#line 389 "fsharp_lexer.l"
 { printToken("OP_CONS", yytext); }
 	YY_BREAK
 case 220:
 YY_RULE_SETUP
-#line 387 "fsharp_lexer.l"
+#line 390 "fsharp_lexer.l"
 { printToken("OP_REF_ASSIGN", yytext); }
 	YY_BREAK
 case 221:
 YY_RULE_SETUP
-#line 388 "fsharp_lexer.l"
+#line 391 "fsharp_lexer.l"
 { printToken("RANGE", yytext); }
 	YY_BREAK
 case 222:
 YY_RULE_SETUP
-#line 389 "fsharp_lexer.l"
+#line 392 "fsharp_lexer.l"
 { printToken("OP_LE", yytext); }
 	YY_BREAK
 case 223:
 YY_RULE_SETUP
-#line 390 "fsharp_lexer.l"
+#line 393 "fsharp_lexer.l"
 { printToken("OP_GE", yytext); }
 	YY_BREAK
 case 224:
 YY_RULE_SETUP
-#line 391 "fsharp_lexer.l"
+#line 394 "fsharp_lexer.l"
 { printToken("OP_NOT_EQUAL", yytext); }
 	YY_BREAK
 case 225:
 YY_RULE_SETUP
-#line 392 "fsharp_lexer.l"
+#line 395 "fsharp_lexer.l"
 { printToken("OP_BOOL_AND", yytext); }
 	YY_BREAK
 case 226:
 YY_RULE_SETUP
-#line 393 "fsharp_lexer.l"
+#line 396 "fsharp_lexer.l"
 { printToken("OP_BOOL_OR", yytext); }
 	YY_BREAK
 case 227:
 YY_RULE_SETUP
-#line 394 "fsharp_lexer.l"
+#line 397 "fsharp_lexer.l"
 { printToken("OP_POWER", yytext); }
 	YY_BREAK
 case 228:
 YY_RULE_SETUP
-#line 395 "fsharp_lexer.l"
+#line 398 "fsharp_lexer.l"
 { printToken("DOUBLE_QUESTION", yytext); }
 	YY_BREAK
 case 229:
 YY_RULE_SETUP
-#line 396 "fsharp_lexer.l"
+#line 399 "fsharp_lexer.l"
 { printToken("ATTRIBUTE_START", yytext); }
 	YY_BREAK
 case 230:
 YY_RULE_SETUP
-#line 397 "fsharp_lexer.l"
+#line 400 "fsharp_lexer.l"
 { printToken("ATTRIBUTE_END", yytext); }
 	YY_BREAK
 case 231:
 YY_RULE_SETUP
-#line 398 "fsharp_lexer.l"
+#line 401 "fsharp_lexer.l"
 { printToken("ARRAY_START", yytext); }
 	YY_BREAK
 case 232:
 YY_RULE_SETUP
-#line 399 "fsharp_lexer.l"
+#line 402 "fsharp_lexer.l"
 { printToken("ARRAY_END", yytext); }
 	YY_BREAK
 case 233:
 YY_RULE_SETUP
-#line 400 "fsharp_lexer.l"
+#line 403 "fsharp_lexer.l"
 { printToken("DOUBLE_SEMICOLON", yytext); }
 	YY_BREAK
 case 234:
 YY_RULE_SETUP
-#line 402 "fsharp_lexer.l"
+#line 405 "fsharp_lexer.l"
 { printToken("OP_PLUS", yytext); }
 	YY_BREAK
 case 235:
 YY_RULE_SETUP
-#line 403 "fsharp_lexer.l"
+#line 406 "fsharp_lexer.l"
 { printToken("OP_MINUS", yytext); }
 	YY_BREAK
 case 236:
 YY_RULE_SETUP
-#line 404 "fsharp_lexer.l"
+#line 407 "fsharp_lexer.l"
 { printToken("OP_MUL", yytext); }
 	YY_BREAK
 case 237:
 YY_RULE_SETUP
-#line 405 "fsharp_lexer.l"
+#line 408 "fsharp_lexer.l"
 { printToken("OP_DIV", yytext); }
 	YY_BREAK
 case 238:
 YY_RULE_SETUP
-#line 406 "fsharp_lexer.l"
+#line 409 "fsharp_lexer.l"
 { printToken("OP_MOD", yytext); }
 	YY_BREAK
 case 239:
 YY_RULE_SETUP
-#line 407 "fsharp_lexer.l"
+#line 410 "fsharp_lexer.l"
 { printToken("OP_EQUAL_OR_EQUALS_SIGN", yytext); }
 	YY_BREAK
 case 240:
 YY_RULE_SETUP
-#line 408 "fsharp_lexer.l"
+#line 411 "fsharp_lexer.l"
 { printToken("OP_LT", yytext); }
 	YY_BREAK
 case 241:
 YY_RULE_SETUP
-#line 409 "fsharp_lexer.l"
+#line 412 "fsharp_lexer.l"
 { printToken("OP_GT", yytext); }
 	YY_BREAK
 case 242:
 YY_RULE_SETUP
-#line 410 "fsharp_lexer.l"
+#line 413 "fsharp_lexer.l"
 { printToken("OP_LIST_APPEND", yytext); }
 	YY_BREAK
 case 243:
 YY_RULE_SETUP
-#line 411 "fsharp_lexer.l"
+#line 414 "fsharp_lexer.l"
 { printToken("OP_DEREF_OR_BANG", yytext); }
 	YY_BREAK
 case 244:
 YY_RULE_SETUP
-#line 412 "fsharp_lexer.l"
+#line 415 "fsharp_lexer.l"
 { printToken("SYMBOLIC_OPERATOR", yytext); }
 	YY_BREAK
 case 245:
 YY_RULE_SETUP
-#line 413 "fsharp_lexer.l"
+#line 416 "fsharp_lexer.l"
 { printToken("QUESTION", yytext); }
 	YY_BREAK
 case 246:
 YY_RULE_SETUP
-#line 414 "fsharp_lexer.l"
+#line 417 "fsharp_lexer.l"
 { printToken("RESERVED_SYMBOL", yytext); }
 	YY_BREAK
 case 247:
 YY_RULE_SETUP
-#line 416 "fsharp_lexer.l"
+#line 419 "fsharp_lexer.l"
 { printToken("LPAREN", yytext); }
 	YY_BREAK
 case 248:
 YY_RULE_SETUP
-#line 417 "fsharp_lexer.l"
+#line 420 "fsharp_lexer.l"
 { printToken("RPAREN", yytext); }
 	YY_BREAK
 case 249:
 YY_RULE_SETUP
-#line 418 "fsharp_lexer.l"
+#line 421 "fsharp_lexer.l"
 { printToken("LBRACKET", yytext); }
 	YY_BREAK
 case 250:
 YY_RULE_SETUP
-#line 419 "fsharp_lexer.l"
+#line 422 "fsharp_lexer.l"
 { printToken("RBRACKET", yytext); }
 	YY_BREAK
 case 251:
 YY_RULE_SETUP
-#line 420 "fsharp_lexer.l"
+#line 423 "fsharp_lexer.l"
 { printToken("LBRACE", yytext); }
 	YY_BREAK
 case 252:
 YY_RULE_SETUP
-#line 421 "fsharp_lexer.l"
+#line 424 "fsharp_lexer.l"
 { printToken("RBRACE", yytext); }
 	YY_BREAK
 case 253:
 YY_RULE_SETUP
-#line 422 "fsharp_lexer.l"
+#line 425 "fsharp_lexer.l"
 { printToken("COMMA", yytext); }
 	YY_BREAK
 case 254:
 YY_RULE_SETUP
-#line 423 "fsharp_lexer.l"
+#line 426 "fsharp_lexer.l"
 { printToken("SEMICOLON", yytext); }
 	YY_BREAK
 case 255:
 YY_RULE_SETUP
-#line 424 "fsharp_lexer.l"
+#line 427 "fsharp_lexer.l"
 { printToken("COLON", yytext); }
 	YY_BREAK
 case 256:
 YY_RULE_SETUP
-#line 425 "fsharp_lexer.l"
+#line 428 "fsharp_lexer.l"
 { printToken("DOT", yytext); }
 	YY_BREAK
 case 257:
 YY_RULE_SETUP
-#line 426 "fsharp_lexer.l"
+#line 429 "fsharp_lexer.l"
 { printToken("APOSTROPHE", yytext); }
 	YY_BREAK
 case 258:
 YY_RULE_SETUP
-#line 427 "fsharp_lexer.l"
+#line 430 "fsharp_lexer.l"
 { printToken("HASH", yytext); }
 	YY_BREAK
 case 259:
 YY_RULE_SETUP
-#line 429 "fsharp_lexer.l"
+#line 432 "fsharp_lexer.l"
 { printToken("SYMBOLIC_OPERATOR", yytext); }
 	YY_BREAK
 case 260:
 YY_RULE_SETUP
-#line 430 "fsharp_lexer.l"
+#line 433 "fsharp_lexer.l"
 { printToken("SYMBOLIC_OPERATOR", yytext); }
 	YY_BREAK
 case 261:
 YY_RULE_SETUP
-#line 432 "fsharp_lexer.l"
+#line 435 "fsharp_lexer.l"
 { /* Whitespace is insignificant at this stage. */ }
 	YY_BREAK
 case 262:
 /* rule 262 can match eol */
 YY_RULE_SETUP
-#line 433 "fsharp_lexer.l"
-{ printToken("NEWLINE", "\\n"); }
+#line 436 "fsharp_lexer.l"
+{ finishLine(); }
 	YY_BREAK
 case 263:
 YY_RULE_SETUP
-#line 434 "fsharp_lexer.l"
+#line 437 "fsharp_lexer.l"
 { lexerError("NUL character is not allowed in source text"); }
 	YY_BREAK
 case YY_STATE_EOF(INITIAL):
-#line 435 "fsharp_lexer.l"
+#line 438 "fsharp_lexer.l"
 { return 0; }
 	YY_BREAK
 case 264:
 YY_RULE_SETUP
-#line 436 "fsharp_lexer.l"
+#line 439 "fsharp_lexer.l"
 {
                                     unsigned char value = static_cast<unsigned char>(yytext[0]);
                                     lexerError("unexpected character with byte value " + std::to_string(value));
@@ -3289,10 +3292,10 @@ YY_RULE_SETUP
 	YY_BREAK
 case 265:
 YY_RULE_SETUP
-#line 441 "fsharp_lexer.l"
+#line 444 "fsharp_lexer.l"
 YY_FATAL_ERROR( "flex scanner jammed" );
 	YY_BREAK
-#line 3295 "lex.yy.cpp"
+#line 3298 "lex.yy.cpp"
 
 	case YY_END_OF_BUFFER:
 		{
@@ -4269,12 +4272,20 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 441 "fsharp_lexer.l"
+#line 444 "fsharp_lexer.l"
 
 
 void printToken(const char* type, const std::string& value) {
     std::cout << type << "\t" << value << '\n';
     atFileStart = false;
+    lineHasCode = true;
+}
+
+void finishLine() {
+    if (lineHasCode) {
+        std::cout << "NEWLINE\t\\n\n";
+        lineHasCode = false;
+    }
 }
 
 void lexerError(const std::string& message) {

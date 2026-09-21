@@ -19,6 +19,9 @@
       <Filter>Исходные файлы</Filter>
     </None>
     <None Include="lexer\README.md" />
+    <None Include="test.fs">
+      <Filter>Исходные файлы</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="lexer\lex.yy.cpp">

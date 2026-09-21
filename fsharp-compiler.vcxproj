@@ -21,6 +21,7 @@
   <ItemGroup>
     <None Include="lexer\fsharp_lexer.l" />
     <None Include="lexer\README.md" />
+    <None Include="test.fs" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="lexer\lex.yy.cpp" />

@@ -25,6 +25,7 @@
     #define YY_USER_ACTION updatePosition(yytext, yyleng);
 
     void printToken(const char* type, const std::string& value);
+    void finishLine();
     void lexerError(const std::string& message);
     void updatePosition(const char* text, int length);
     void appendText(const char* text, int length);
@@ -49,6 +50,7 @@
     int interpolationDelimiterLength = 1;
     bool atFileStart = true;
     bool hadError = false;
+    bool lineHasCode = false;
     std::string literalBuffer;
 %}
 
@@ -94,11 +96,12 @@ OPERATOR_CHAR       [!%&*+\-./<=>@^|~?:]
                                         printToken("HASH", "#");
                                     }
                                 }
-"///"[^\r\n]*                   { printToken("XML_DOC_COMMENT", yytext); }
-"//"[^\r\n]*                    { /* Line comment. */ }
+"///"[^\r\n]*                   { atFileStart = false; }
+"//"[^\r\n]*                    { atFileStart = false; }
 "(*"                            {
                                     commentDepth = 1;
                                     commentStartLine = tokenLine;
+                                    atFileStart = false;
                                     BEGIN(COMMENT);
                                 }
 <COMMENT>"\"\"\""              { BEGIN(COMMENT_TRIPLE); }
@@ -113,26 +116,26 @@ OPERATOR_CHAR       [!%&*+\-./<=>@^|~?:]
                                 }
 <COMMENT>[^(*"@\r\n]+           { /* Block comment content. */ }
 <COMMENT>[(*"@]                 { /* Block comment content. */ }
-<COMMENT>\r\n|\r|\n             { /* yylineno is maintained by flex. */ }
+<COMMENT>\r\n|\r|\n             { finishLine(); }
 <COMMENT><<EOF>>                {
                                     lexerError("unterminated block comment opened at line " + std::to_string(commentStartLine));
                                     yyterminate();
                                 }
-<COMMENT_STRING>\\[^\r\n]       { /* Escaped character inside a comment string. */ }
+<COMMENT_STRING>\\[^\r\n]       { /* Escaped comment-string character. */ }
 <COMMENT_STRING>"\""            { BEGIN(COMMENT); }
-<COMMENT_STRING>[^\\"\r\n]+    { /* Comment string content. */ }
-<COMMENT_STRING>\r\n|\r|\n      { /* Multiline strings are valid in F#. */ }
-<COMMENT_STRING>.                { /* Any remaining string byte. */ }
+<COMMENT_STRING>[^\\"\r\n]+    { /* Comment-string content. */ }
+<COMMENT_STRING>\r\n|\r|\n      { finishLine(); }
+<COMMENT_STRING>.                { /* Any remaining comment-string byte. */ }
 <COMMENT_STRING><<EOF>>         { lexerError("unterminated string in block comment"); yyterminate(); }
 <COMMENT_VERBATIM>"\"\""       { /* Escaped quote. */ }
 <COMMENT_VERBATIM>"\""         { BEGIN(COMMENT); }
-<COMMENT_VERBATIM>[^"\r\n]+    { /* Verbatim string content. */ }
-<COMMENT_VERBATIM>\r\n|\r|\n   { /* Multiline string. */ }
+<COMMENT_VERBATIM>[^"\r\n]+    { /* Comment verbatim-string content. */ }
+<COMMENT_VERBATIM>\r\n|\r|\n   { finishLine(); }
 <COMMENT_VERBATIM><<EOF>>      { lexerError("unterminated verbatim string in block comment"); yyterminate(); }
 <COMMENT_TRIPLE>\"{3,}          { BEGIN(COMMENT); }
-<COMMENT_TRIPLE>[^"\r\n]+      { /* Triple string content. */ }
-<COMMENT_TRIPLE>"\""|"\"\""   { /* Quotes inside a triple string. */ }
-<COMMENT_TRIPLE>\r\n|\r|\n     { /* Multiline string. */ }
+<COMMENT_TRIPLE>[^"\r\n]+      { /* Comment triple-string content. */ }
+<COMMENT_TRIPLE>"\""|"\"\""   { /* Quotes inside a comment triple string. */ }
+<COMMENT_TRIPLE>\r\n|\r|\n     { finishLine(); }
 <COMMENT_TRIPLE><<EOF>>        { lexerError("unterminated triple string in block comment"); yyterminate(); }
 
 ^[ \t]*\#if                     { printToken("IF_DIRECTIVE", yytext); }
@@ -430,7 +433,7 @@ OPERATOR_CHAR       [!%&*+\-./<=>@^|~?:]
 {FIRST_OPERATOR_CHAR}{OPERATOR_CHAR}* { printToken("SYMBOLIC_OPERATOR", yytext); }
 
 [ \t\f\v]+                    { /* Whitespace is insignificant at this stage. */ }
-\r\n|\r|\n                    { printToken("NEWLINE", "\\n"); }
+\r\n|\r|\n                    { finishLine(); }
 <*>\x00                         { lexerError("NUL character is not allowed in source text"); }
 <<EOF>>                         { return 0; }
 .                               {
@@ -443,6 +446,14 @@ OPERATOR_CHAR       [!%&*+\-./<=>@^|~?:]
 void printToken(const char* type, const std::string& value) {
     std::cout << type << "\t" << value << '\n';
     atFileStart = false;
+    lineHasCode = true;
+}
+
+void finishLine() {
+    if (lineHasCode) {
+        std::cout << "NEWLINE\t\\n\n";
+        lineHasCode = false;
+    }
 }
 
 void lexerError(const std::string& message) {
