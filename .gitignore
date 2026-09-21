@@ -1,0 +1,22 @@
+# Скрытая папка настроек Visual Studio
+.vs/
+fsharp-compiler.vcxproj.user
+
+# Папки с результатами компиляции (бинарники и объектные файлы)
+Debug/
+Release/
+x64/
+x86/
+
+# Временные файлы компилятора C++
+*.obj
+*.log
+*.tlog
+*.lastbuildstate
+*.pdb
+*.idb
+*.ilk
+*.exe
+
+# Исполняемые файлы
+win_flex.exe
