@@ -3,14 +3,11 @@ simple_identifier123
 value'
 _privateValue
 имя2
-``identifier with spaces``
-``type``
-``value.with odd#name``
 _
-'T
-^T
-value!
-name#
-__SOURCE_DIRECTORY__
-__SOURCE_FILE__
-__LINE__
+value
+Value
+letter
+returnValue
+System.Console.ReadLine
+int char string bool unit float float32 decimal
+printf printfn not seq get set IDisposable Dispose raise failwith

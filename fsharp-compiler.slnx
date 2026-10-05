@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="fsharp-compiler.vcxproj" />
+  <Project Path="fsharp-compiler.vcxproj" Id="13f83036-118e-405c-a22c-3b891943b207" />
 </Solution>

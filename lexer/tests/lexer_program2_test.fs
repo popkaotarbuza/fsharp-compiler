@@ -6,8 +6,8 @@ type Shape =
 
 let area shape =
     match shape with
-    | Circle radius -> System.Math.PI * radius ** 2.0
+    | Circle radius -> System.Math.PI * radius * radius
     | Rectangle (width, height) -> width * height
 
 let shapes = [ Circle 2.0; Rectangle (3.0, 4.0) ]
-let areas = shapes |> List.map area
+let areas = List.map area shapes
