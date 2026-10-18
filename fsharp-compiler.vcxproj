@@ -27,6 +27,7 @@
     <ClCompile Include="lexer\lex.yy.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="lexer\lexer.hpp" />
     <ClInclude Include="unistd.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

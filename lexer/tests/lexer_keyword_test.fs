@@ -7,3 +7,11 @@ void when while with yield
 
 use! yield! return!
 select
+
+// Слитные формы и отдельный оператор ! должны различаться.
+let! do! match! and!
+return !signal
+yield !tail
+use !resource
+let!value do!action match!subject and!next
+letBang returnValue useLater yielding andNext matchMode
