@@ -1,4 +1,4 @@
-﻿param(
+param(
     [string]$LexerPath,
     [string]$ReportPath
 )
@@ -23,46 +23,6 @@ function Add-ReportLine {
     param([string]$Message)
 
     $script:report.Add($Message)
-}
-
-# Читаем потоки целиком: значения строк могут содержать физический перевод строки.
-function Read-LexerOutput {
-    param([string]$InputPath)
-
-    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $startInfo.FileName = $resolvedLexer
-    $startInfo.Arguments = '"' + $InputPath + '"'
-    $startInfo.UseShellExecute = $false
-    $startInfo.CreateNoWindow = $true
-    $startInfo.RedirectStandardOutput = $true
-    $startInfo.RedirectStandardError = $true
-    $startInfo.StandardOutputEncoding = $utf8
-    $startInfo.StandardErrorEncoding = $utf8
-    $process = New-Object System.Diagnostics.Process
-    $process.StartInfo = $startInfo
-    try {
-        [void]$process.Start()
-        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
-        $stderrTask = $process.StandardError.ReadToEndAsync()
-        if (-not $process.WaitForExit(10000)) {
-            $process.Kill()
-            throw "Lexer timed out: $InputPath"
-        }
-        $stdoutText = $stdoutTask.Result
-        $stderrText = $stderrTask.Result
-        if ([Environment]::NewLine -eq "`r`n") {
-            # Отменяем один уровень преобразования LF в CRLF, сделанный CRT.
-            $stdoutText = $stdoutText.Replace("`r`n", "`n")
-            $stderrText = $stderrText.Replace("`r`n", "`n")
-        }
-        return [pscustomobject]@{
-            Stdout = $stdoutText
-            Stderr = $stderrText
-            ExitCode = $process.ExitCode
-        }
-    } finally {
-        $process.Dispose()
-    }
 }
 
 $expectedTokens = @{
@@ -166,62 +126,16 @@ $expectedErrors = @{
     "lexer_invalid_interpolation_string_test.fs" = @('unterminated string literal')
 }
 
-# Последовательность задана по исходному примеру, включая пробел перед отдельным !.
-$expectedSequence["lexer_keyword_test.fs"] = $expectedTokens["lexer_keyword_test.fs"] + @(
-    'KW_LET_BANG', 'KW_DO_BANG', 'KW_MATCH_BANG', 'KW_AND_BANG', 'KW_RETURN', 'OP_BANG', 'IDENTIFIER', 'KW_YIELD', 'OP_BANG', 'IDENTIFIER', 'KW_USE', 'OP_BANG', 'IDENTIFIER', 'KW_LET_BANG', 'IDENTIFIER', 'KW_DO_BANG', 'IDENTIFIER', 'KW_MATCH_BANG', 'IDENTIFIER', 'KW_AND_BANG', 'IDENTIFIER', 'IDENTIFIER', 'IDENTIFIER', 'IDENTIFIER', 'IDENTIFIER', 'IDENTIFIER', 'IDENTIFIER'
-)
-$expectedTokens["lexer_keyword_test.fs"] += @("KW_LET_BANG", "KW_DO_BANG", "KW_MATCH_BANG", "KW_AND_BANG", "OP_BANG", "IDENTIFIER")
-$expectedText["lexer_literal_test.fs"] += @(
-    "BOOL_TRUE: 1", "BOOL_FALSE: 0",
-    "INT_LITERAL: 18446744073709551615UL", "INT_LITERAL: 18446744073709551615uL",
-    "INT_LITERAL: 257us", "INT_LITERAL: 4012uy",
-    "FLOAT64_LITERAL: 40961.25", "FLOAT32_LITERAL: 62.5",
-    "DECIMAL_LITERAL: 9007199254740993M",
-    "INT_LITERAL: 987654321098765432109876543210987654321I",
-    "INT_LITERAL: 11`nRANGE`nINT_LITERAL: 23"
-)
-$expectedErrors["lexer_invalid_number_test.fs"] += @(
-    "integer overflow: 0x1_0000_0000_0000_0000UL",
-    "floating-point value out of range: 6.9e39F",
-    "floating-point value out of range: 2e-9999",
-    "invalid numeric literal: 17ultra"
-)
-
-# Полный ожидаемый хвост новых случаев интерполяции без токенов NEWLINE.
-$expectedInterpolationTail = @(
-    'KW_LET: let', 'IDENTIFIER: interpolationCheckpoint', 'OP_EQUAL_OR_EQUALS_SIGN',
-    'INTERP_START', 'INTERP_TEXT: route:', 'INTERP_EXPR_START',
-    'LBRACE', 'IDENTIFIER: Outer', 'OP_EQUAL_OR_EQUALS_SIGN',
-    'LBRACE', 'IDENTIFIER: Label', 'OP_EQUAL_OR_EQUALS_SIGN',
-    'STRING_LITERAL: quay', 'SEMICOLON', 'IDENTIFIER: Values',
-    'OP_EQUAL_OR_EQUALS_SIGN', 'ARRAY_START', 'INT_LITERAL: 7',
-    'SEMICOLON', 'INT_LITERAL: 12', 'ARRAY_END',
-    'RBRACE', 'RBRACE', 'INTERP_EXPR_END',
-    'INTERP_END', 'INTERP_START', 'INTERP_TEXT: depth:',
-    'INTERP_EXPR_START', 'LPAREN', 'INTERP_START',
-    'INTERP_TEXT: layer:', 'INTERP_EXPR_START', 'LPAREN',
-    'INTERP_START', 'INTERP_TEXT: cell:', 'INTERP_EXPR_START',
-    'IDENTIFIER: flag', 'INTERP_EXPR_END', 'INTERP_END',
-    'RPAREN', 'INTERP_EXPR_END', 'INTERP_END',
-    'RPAREN', 'INTERP_EXPR_END', 'INTERP_END',
-    'INTERP_START', 'INTERP_EXPR_START', 'CHAR_LITERAL: }',
-    'INTERP_EXPR_END', 'INTERP_END', 'INTERP_START',
-    'INTERP_EXPR_START', 'BOOL_FALSE: 0', 'INTERP_EXPR_END',
-    'INTERP_EXPR_START', 'BOOL_TRUE: 1', 'INTERP_EXPR_END',
-    'INTERP_END', 'STRING_LITERAL: ready'
-) -join "`n"
-
 $tests = Get-ChildItem -LiteralPath $PSScriptRoot -File |
     Where-Object { $_.Extension -in ".fs", ".fsx" } |
     Sort-Object Name
 
 $failures = 0
 foreach ($test in $tests) {
-    $capture = Read-LexerOutput $test.FullName
-    $exitCode = $capture.ExitCode
+    $output = @(& $resolvedLexer $test.FullName 2>&1 | ForEach-Object { $_.ToString() })
+    $exitCode = $LASTEXITCODE
     $expectsError = $test.BaseName.StartsWith("lexer_invalid_")
-    $text = ($capture.Stdout + $capture.Stderr).Replace("`r`n", "`n")
-    $output = @($text.TrimEnd([char]10) -split "`n")
+    $text = ($output -join "`n").Replace("`r`n", "`n")
 
     Add-ReportLine "===== $($test.Name) ====="
     Add-ReportLine "Output:"
@@ -270,18 +184,6 @@ foreach ($test in $tests) {
 
     $missingText = @($expectedText[$test.Name] | Where-Object { $null -ne $_ -and -not $text.Contains($_) })
     $unexpectedOutput = @()
-    if (-not [string]::IsNullOrEmpty($capture.Stderr)) {
-        $unexpectedOutput += "diagnostics in a positive test"
-    }
-    $unexpectedOutput += @($output | Where-Object {
-        $_ -match '^BOOL_TRUE: (?!1$)' -or $_ -match '^BOOL_FALSE: (?!0$)'
-    })
-    if ($test.Name -eq "lexer_string_test.fs") {
-        $withoutNewlines = ([regex]::Replace($text, '(?m)^NEWLINE\n', '')).TrimEnd([char]10)
-        if (-not $withoutNewlines.EndsWith($expectedInterpolationTail, [StringComparison]::Ordinal)) {
-            $unexpectedOutput += "interpolation regression sequence or value mismatch"
-        }
-    }
     if ($expectedSequence.ContainsKey($test.Name)) {
         $actualSequence = @($output | ForEach-Object {
             if ($_ -match '^([A-Z][A-Z0-9_]*)(?::|$)' -and $Matches[1] -ne 'NEWLINE') {

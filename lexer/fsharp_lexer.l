@@ -1,8 +1,6 @@
 %option stack
 %option noyywrap
 %option never-interactive
-%option nounistd
-%option nodefault
 %option yylineno
 
 %top{
@@ -12,6 +10,7 @@
 %x MULTILINE_COMMENT
 %x STRING
 %x INTERPOLATED_STRING
+%s INTERPOLATION_EXPR
 
 DIGIT           [0-9]
 HEX_DIGIT       [0-9A-Fa-f]
@@ -28,322 +27,282 @@ ESCAPE          \\[ntv\\\"']
 NEWLINE         (\r\n|\r|\n)
 
 %{
-    #include "lexer.hpp"
+    #define YY_NO_UNISTD_H
+
     #include <stdio.h>
-    #include <algorithm>
-    #include <charconv>
-    #include <iomanip>
+    #include <stdlib.h>
+    #include <string.h>
+    #include <errno.h>
+    #include <string>
+    #include <stdexcept>
+    #include <vector>
     #include <iostream>
-    #include <string_view>
-    #include <system_error>
-    #include <type_traits>
     #include <icu.h>
 
     #pragma comment(lib, "icu.lib")
 
-    using fsharp::LexerState;
-    using fsharp::Token;
-    using fsharp::TokenKind;
-
-    #define TOKEN(name) Token{TokenKind::name, #name, {}, {}}
-    #define VALUE_TOKEN(name, value) Token{TokenKind::name, #name, value, {}}
-    #define YY_DECL Token yylex(LexerState& state)
-    #define yyterminate() return TOKEN(End)
-
     /* ----- прототипы функций ----- */
 
-    Token convert_to_decimal(LexerState& state, const char* src, int base);
-    Token convert_to_float(LexerState& state, const char* src);
-    void parse_unicode(LexerState& state, std::string& buf, long cp);
-    void parse_string_escape(LexerState& state, std::string& buf, char c);
-    Token parse_template_escape(LexerState& state, char c);
-    Token parse_identifier(LexerState& state, const char* text, int length);
-    Token parse_character_literal(LexerState& state, const char* text, int length);
-    void append_string_text(LexerState& state, std::string& buffer, const char* text, int length);
+    void strip_underscores(const char* src, char* out, size_t cap);
+    void convert_to_decimal(const char* src, int base);
+    void convert_to_float(const char* src);
+    void parse_unicode(std::string& buf, long cp);
+    void parse_string_escape(std::string& buf, char c);
+    void parse_template_escape(char c);
+    void parse_identifier(const char* text, int length);
+    void parse_character_literal(const char* text, int length);
+    void append_string_text(std::string& buffer, const char* text, int length);
+
 %}
 
 %%
 
+%{
+    /* ----- комментарии и строковые литералы ----- */
+
+    int commentDepth = 0;
+    std::string stringBuffer;
+
+    /* ----- фигурные скобки внутри интерполированных строк ----- */
+
+    std::vector<int> braceStack;
+%}
+
     /* ----- ключевые слова ----- */
 
-abstract                                               	{ return VALUE_TOKEN(KW_ABSTRACT, std::string(yytext, yyleng)); }
-and                                                    	{ return VALUE_TOKEN(KW_AND, std::string(yytext, yyleng)); }
-as                                                     	{ return VALUE_TOKEN(KW_AS, std::string(yytext, yyleng)); }
-assert                                                 	{ return VALUE_TOKEN(KW_ASSERT, std::string(yytext, yyleng)); }
-base                                                   	{ return VALUE_TOKEN(KW_BASE, std::string(yytext, yyleng)); }
-begin                                                  	{ return VALUE_TOKEN(KW_BEGIN, std::string(yytext, yyleng)); }
-class                                                  	{ return VALUE_TOKEN(KW_CLASS, std::string(yytext, yyleng)); }
-default                                                	{ return VALUE_TOKEN(KW_DEFAULT, std::string(yytext, yyleng)); }
-delegate                                               	{ return VALUE_TOKEN(KW_DELEGATE, std::string(yytext, yyleng)); }
-do                                                     	{ return VALUE_TOKEN(KW_DO, std::string(yytext, yyleng)); }
-done                                                   	{ return VALUE_TOKEN(KW_DONE, std::string(yytext, yyleng)); }
-downcast                                               	{ return VALUE_TOKEN(KW_DOWNCAST, std::string(yytext, yyleng)); }
-downto                                                 	{ return VALUE_TOKEN(KW_DOWNTO, std::string(yytext, yyleng)); }
-elif                                                   	{ return VALUE_TOKEN(KW_ELIF, std::string(yytext, yyleng)); }
-else                                                   	{ return VALUE_TOKEN(KW_ELSE, std::string(yytext, yyleng)); }
-end                                                    	{ return VALUE_TOKEN(KW_END, std::string(yytext, yyleng)); }
-exception                                              	{ return VALUE_TOKEN(KW_EXCEPTION, std::string(yytext, yyleng)); }
-extern                                                 	{ return VALUE_TOKEN(KW_EXTERN, std::string(yytext, yyleng)); }
-finally                                                	{ return VALUE_TOKEN(KW_FINALLY, std::string(yytext, yyleng)); }
-fixed                                                  	{ return VALUE_TOKEN(KW_FIXED, std::string(yytext, yyleng)); }
-for                                                    	{ return VALUE_TOKEN(KW_FOR, std::string(yytext, yyleng)); }
-fun                                                    	{ return VALUE_TOKEN(KW_FUN, std::string(yytext, yyleng)); }
-function                                               	{ return VALUE_TOKEN(KW_FUNCTION, std::string(yytext, yyleng)); }
-global                                                 	{ return VALUE_TOKEN(KW_GLOBAL, std::string(yytext, yyleng)); }
-if                                                     	{ return VALUE_TOKEN(KW_IF, std::string(yytext, yyleng)); }
-in                                                     	{ return VALUE_TOKEN(KW_IN, std::string(yytext, yyleng)); }
-inherit                                                	{ return VALUE_TOKEN(KW_INHERIT, std::string(yytext, yyleng)); }
-inline                                                 	{ return VALUE_TOKEN(KW_INLINE, std::string(yytext, yyleng)); }
-interface                                              	{ return VALUE_TOKEN(KW_INTERFACE, std::string(yytext, yyleng)); }
-internal                                               	{ return VALUE_TOKEN(KW_INTERNAL, std::string(yytext, yyleng)); }
-lazy                                                   	{ return VALUE_TOKEN(KW_LAZY, std::string(yytext, yyleng)); }
-let                                                    	{ return VALUE_TOKEN(KW_LET, std::string(yytext, yyleng)); }
-match                                                  	{ return VALUE_TOKEN(KW_MATCH, std::string(yytext, yyleng)); }
-member                                                 	{ return VALUE_TOKEN(KW_MEMBER, std::string(yytext, yyleng)); }
-module                                                 	{ return VALUE_TOKEN(KW_MODULE, std::string(yytext, yyleng)); }
-mutable                                                	{ return VALUE_TOKEN(KW_MUTABLE, std::string(yytext, yyleng)); }
-namespace                                              	{ return VALUE_TOKEN(KW_NAMESPACE, std::string(yytext, yyleng)); }
-new                                                    	{ return VALUE_TOKEN(KW_NEW, std::string(yytext, yyleng)); }
-null                                                   	{ return VALUE_TOKEN(KW_NULL, std::string(yytext, yyleng)); }
-of                                                     	{ return VALUE_TOKEN(KW_OF, std::string(yytext, yyleng)); }
-open                                                   	{ return VALUE_TOKEN(KW_OPEN, std::string(yytext, yyleng)); }
-or                                                     	{ return VALUE_TOKEN(KW_OR, std::string(yytext, yyleng)); }
-override                                               	{ return VALUE_TOKEN(KW_OVERRIDE, std::string(yytext, yyleng)); }
-private                                                	{ return VALUE_TOKEN(KW_PRIVATE, std::string(yytext, yyleng)); }
-public                                                 	{ return VALUE_TOKEN(KW_PUBLIC, std::string(yytext, yyleng)); }
-rec                                                    	{ return VALUE_TOKEN(KW_REC, std::string(yytext, yyleng)); }
-return                                                 	{ return VALUE_TOKEN(KW_RETURN, std::string(yytext, yyleng)); }
-"return!"                                              	{ return VALUE_TOKEN(KW_RETURN_BANG, std::string(yytext, yyleng)); }
-select                                                 	{ return VALUE_TOKEN(KW_SELECT, std::string(yytext, yyleng)); }
-static                                                 	{ return VALUE_TOKEN(KW_STATIC, std::string(yytext, yyleng)); }
-struct                                                 	{ return VALUE_TOKEN(KW_STRUCT, std::string(yytext, yyleng)); }
-then                                                   	{ return VALUE_TOKEN(KW_THEN, std::string(yytext, yyleng)); }
-to                                                     	{ return VALUE_TOKEN(KW_TO, std::string(yytext, yyleng)); }
-try                                                    	{ return VALUE_TOKEN(KW_TRY, std::string(yytext, yyleng)); }
-type                                                   	{ return VALUE_TOKEN(KW_TYPE, std::string(yytext, yyleng)); }
-upcast                                                 	{ return VALUE_TOKEN(KW_UPCAST, std::string(yytext, yyleng)); }
-use                                                    	{ return VALUE_TOKEN(KW_USE, std::string(yytext, yyleng)); }
-"use!"                                                 	{ return VALUE_TOKEN(KW_USE_BANG, std::string(yytext, yyleng)); }
-val                                                    	{ return VALUE_TOKEN(KW_VAL, std::string(yytext, yyleng)); }
-void                                                   	{ return VALUE_TOKEN(KW_VOID, std::string(yytext, yyleng)); }
-when                                                   	{ return VALUE_TOKEN(KW_WHEN, std::string(yytext, yyleng)); }
-while                                                  	{ return VALUE_TOKEN(KW_WHILE, std::string(yytext, yyleng)); }
-with                                                   	{ return VALUE_TOKEN(KW_WITH, std::string(yytext, yyleng)); }
-yield                                                  	{ return VALUE_TOKEN(KW_YIELD, std::string(yytext, yyleng)); }
-"yield!"                                               	{ return VALUE_TOKEN(KW_YIELD_BANG, std::string(yytext, yyleng)); }
+abstract                                               	{ printf("KW_ABSTRACT: %s\n", yytext); }
+and                                                    	{ printf("KW_AND: %s\n", yytext); }
+as                                                     	{ printf("KW_AS: %s\n", yytext); }
+assert                                                 	{ printf("KW_ASSERT: %s\n", yytext); }
+base                                                   	{ printf("KW_BASE: %s\n", yytext); }
+begin                                                  	{ printf("KW_BEGIN: %s\n", yytext); }
+class                                                  	{ printf("KW_CLASS: %s\n", yytext); }
+default                                                	{ printf("KW_DEFAULT: %s\n", yytext); }
+delegate                                               	{ printf("KW_DELEGATE: %s\n", yytext); }
+do                                                     	{ printf("KW_DO: %s\n", yytext); }
+done                                                   	{ printf("KW_DONE: %s\n", yytext); }
+downcast                                               	{ printf("KW_DOWNCAST: %s\n", yytext); }
+downto                                                 	{ printf("KW_DOWNTO: %s\n", yytext); }
+elif                                                   	{ printf("KW_ELIF: %s\n", yytext); }
+else                                                   	{ printf("KW_ELSE: %s\n", yytext); }
+end                                                    	{ printf("KW_END: %s\n", yytext); }
+exception                                              	{ printf("KW_EXCEPTION: %s\n", yytext); }
+extern                                                 	{ printf("KW_EXTERN: %s\n", yytext); }
+finally                                                	{ printf("KW_FINALLY: %s\n", yytext); }
+fixed                                                  	{ printf("KW_FIXED: %s\n", yytext); }
+for                                                    	{ printf("KW_FOR: %s\n", yytext); }
+fun                                                    	{ printf("KW_FUN: %s\n", yytext); }
+function                                               	{ printf("KW_FUNCTION: %s\n", yytext); }
+global                                                 	{ printf("KW_GLOBAL: %s\n", yytext); }
+if                                                     	{ printf("KW_IF: %s\n", yytext); }
+in                                                     	{ printf("KW_IN: %s\n", yytext); }
+inherit                                                	{ printf("KW_INHERIT: %s\n", yytext); }
+inline                                                 	{ printf("KW_INLINE: %s\n", yytext); }
+interface                                              	{ printf("KW_INTERFACE: %s\n", yytext); }
+internal                                               	{ printf("KW_INTERNAL: %s\n", yytext); }
+lazy                                                   	{ printf("KW_LAZY: %s\n", yytext); }
+let                                                    	{ printf("KW_LET: %s\n", yytext); }
+match                                                  	{ printf("KW_MATCH: %s\n", yytext); }
+member                                                 	{ printf("KW_MEMBER: %s\n", yytext); }
+module                                                 	{ printf("KW_MODULE: %s\n", yytext); }
+mutable                                                	{ printf("KW_MUTABLE: %s\n", yytext); }
+namespace                                              	{ printf("KW_NAMESPACE: %s\n", yytext); }
+new                                                    	{ printf("KW_NEW: %s\n", yytext); }
+null                                                   	{ printf("KW_NULL: %s\n", yytext); }
+of                                                     	{ printf("KW_OF: %s\n", yytext); }
+open                                                   	{ printf("KW_OPEN: %s\n", yytext); }
+or                                                     	{ printf("KW_OR: %s\n", yytext); }
+override                                               	{ printf("KW_OVERRIDE: %s\n", yytext); }
+private                                                	{ printf("KW_PRIVATE: %s\n", yytext); }
+public                                                 	{ printf("KW_PUBLIC: %s\n", yytext); }
+rec                                                    	{ printf("KW_REC: %s\n", yytext); }
+return                                                 	{ printf("KW_RETURN: %s\n", yytext); }
+select                                                 	{ printf("KW_SELECT: %s\n", yytext); }
+static                                                 	{ printf("KW_STATIC: %s\n", yytext); }
+struct                                                 	{ printf("KW_STRUCT: %s\n", yytext); }
+then                                                   	{ printf("KW_THEN: %s\n", yytext); }
+to                                                     	{ printf("KW_TO: %s\n", yytext); }
+try                                                    	{ printf("KW_TRY: %s\n", yytext); }
+type                                                   	{ printf("KW_TYPE: %s\n", yytext); }
+upcast                                                 	{ printf("KW_UPCAST: %s\n", yytext); }
+use                                                    	{ printf("KW_USE: %s\n", yytext); }
+val                                                    	{ printf("KW_VAL: %s\n", yytext); }
+void                                                   	{ printf("KW_VOID: %s\n", yytext); }
+when                                                   	{ printf("KW_WHEN: %s\n", yytext); }
+while                                                  	{ printf("KW_WHILE: %s\n", yytext); }
+with                                                   	{ printf("KW_WITH: %s\n", yytext); }
+yield                                                  	{ printf("KW_YIELD: %s\n", yytext); }
 
-true                                                   	{ return VALUE_TOKEN(BOOL_TRUE, 1); }
-false                                                  	{ return VALUE_TOKEN(BOOL_FALSE, 0); }
-
-    /* Формы с ! распознаются целиком по правилу самого длинного совпадения. */
-"let!"                                                 	{ return VALUE_TOKEN(KW_LET_BANG, std::string(yytext, yyleng)); }
-"do!"                                                  	{ return VALUE_TOKEN(KW_DO_BANG, std::string(yytext, yyleng)); }
-"match!"                                               	{ return VALUE_TOKEN(KW_MATCH_BANG, std::string(yytext, yyleng)); }
-"and!"                                                 	{ return VALUE_TOKEN(KW_AND_BANG, std::string(yytext, yyleng)); }
+true                                                   	{ printf("BOOL_TRUE: %s\n", yytext); }
+false                                                  	{ printf("BOOL_FALSE: %s\n", yytext); }
 
     /* ----- идентификаторы ----- */
 
-"_"                                                    	{ return TOKEN(WILDCARD); }
-{ID}                                                   	{ return parse_identifier(state, yytext, yyleng); }
+"_"                                                    	{ printf("WILDCARD\n"); }
+{ID}                                                   	{ parse_identifier(yytext, yyleng); }
 
     /* ----- операторы ----- */
 
-"+"                                                    	{ return TOKEN(OP_PLUS); }
-"-"                                                    	{ return TOKEN(OP_MINUS); }
-"*"                                                    	{ return TOKEN(OP_MUL); }
-"/"                                                    	{ return TOKEN(OP_DIV); }
-"%"                                                    	{ return TOKEN(OP_MOD); }
-"="                                                    	{ return TOKEN(OP_EQUAL_OR_EQUALS_SIGN); }
-"<>"                                                   	{ return TOKEN(OP_NOT_EQUAL); }
-"<"                                                    	{ return TOKEN(OP_LT); }
-"<="                                                   	{ return TOKEN(OP_LE); }
-">"                                                    	{ return TOKEN(OP_GT); }
-">="                                                   	{ return TOKEN(OP_GE); }
-"<-"                                                   	{ return TOKEN(OP_ASSIGN); }
-"&&"                                                   	{ return TOKEN(OP_BOOL_AND); }
-"||"                                                   	{ return TOKEN(OP_BOOL_OR); }
-"::"                                                   	{ return TOKEN(OP_CONS); }
-
-"!"                                                    	{ return TOKEN(OP_BANG); }
+"+"                                                    	{ printf("OP_PLUS\n"); }
+"-"                                                    	{ printf("OP_MINUS\n"); }
+"*"                                                    	{ printf("OP_MUL\n"); }
+"/"                                                    	{ printf("OP_DIV\n"); }
+"%"                                                    	{ printf("OP_MOD\n"); }
+"="                                                    	{ printf("OP_EQUAL_OR_EQUALS_SIGN\n"); }
+"<>"                                                   	{ printf("OP_NOT_EQUAL\n"); }
+"<"                                                    	{ printf("OP_LT\n"); }
+"<="                                                   	{ printf("OP_LE\n"); }
+">"                                                    	{ printf("OP_GT\n"); }
+">="                                                   	{ printf("OP_GE\n"); }
+"<-"                                                   	{ printf("OP_ASSIGN\n"); }
+"&&"                                                   	{ printf("OP_BOOL_AND\n"); }
+"||"                                                   	{ printf("OP_BOOL_OR\n"); }
+"::"                                                   	{ printf("OP_CONS\n"); }
 
     /* ----- синтаксические знаки ----- */
 
-"->"                                                   	{ return TOKEN(ARROW); }
-"."                                                    	{ return TOKEN(DOT); }
-".."                                                   	{ return TOKEN(RANGE); }
-":"                                                    	{ return TOKEN(COLON); }
-"("                                                    	{ return TOKEN(LPAREN); }
-")"                                                    	{ return TOKEN(RPAREN); }
-"["                                                    	{ return TOKEN(LBRACKET); }
-"]"                                                    	{ return TOKEN(RBRACKET); }
-"[|"                                                   	{ return TOKEN(ARRAY_START); }
-"|]"                                                   	{ return TOKEN(ARRAY_END); }
-"{"                                                     {
-                                                            if (!state.braceStack.empty())
-                                                                ++state.braceStack.back();
-                                                            return TOKEN(LBRACE);
-                                                        }
-"}"                                                     {
-                                                            if (!state.braceStack.empty()) {
-                                                                if (state.braceStack.back() == 0) {
-                                                                    state.braceStack.pop_back();
-                                                                    yy_pop_state();
-                                                                    return TOKEN(INTERP_EXPR_END);
-                                                                }
-                                                                --state.braceStack.back();
-                                                            }
-                                                            return TOKEN(RBRACE);
-                                                        }
-","                                                    	{ return TOKEN(COMMA); }
-";"                                                    	{ return TOKEN(SEMICOLON); }
-"|"                                                    	{ return TOKEN(BAR); }
+"->"                                                   	{ printf("ARROW\n"); }
+"."                                                    	{ printf("DOT\n"); }
+".."                                                   	{ printf("RANGE\n"); }
+":"                                                    	{ printf("COLON\n"); }
+"("                                                    	{ printf("LPAREN\n"); }
+")"                                                    	{ printf("RPAREN\n"); }
+"["                                                    	{ printf("LBRACKET\n"); }
+"]"                                                    	{ printf("RBRACKET\n"); }
+"[|"                                                   	{ printf("ARRAY_START\n"); }
+"|]"                                                   	{ printf("ARRAY_END\n"); }
+<INITIAL>"{"                                            { printf("LBRACE\n"); }
+<INITIAL>"}"                                            { printf("RBRACE\n"); }
+","                                                    	{ printf("COMMA\n"); }
+";"                                                    	{ printf("SEMICOLON\n"); }
+"|"                                                    	{ printf("BAR\n"); }
 
     /* ----- числа ----- */
 
     /* Первая точка диапазона не входит в вещественный литерал */
-{DECIMAL_DIGITS}/".."                                  	{ return convert_to_decimal(state, yytext, 10); }
-({REAL}|{DECIMAL_DIGITS})[fFmM]                        	{ return convert_to_float(state, yytext); }
-{REAL}                                                 	{ return convert_to_float(state, yytext); }
+{DECIMAL_DIGITS}/".."                                  	{ convert_to_decimal(yytext, 10); }
+({REAL}|{DECIMAL_DIGITS})[fFmM]                        	{ convert_to_float(yytext); }
+{REAL}                                                 	{ convert_to_float(yytext); }
 {INTEGER}                                              	{
-                                                                int base = 10;
-                                                                if (yytext[0] == '0') {
-                                                                        switch (yytext[1]) {
-                                                                                case 'x': case 'X': base = 16; break;
-                                                                                case 'o': case 'O': base = 8; break;
-                                                                                case 'b': case 'B': base = 2; break;
-                                                                        }
-                                                                }
-                                                                return convert_to_decimal(state, yytext, base);
-                                                        }
+                                                       		int base = 10;
+                                                       		if (yytext[0] == '0') {
+                                                       			switch (yytext[1]) {
+                                                       				case 'x': case 'X': base = 16; break;
+                                                       				case 'o': case 'O': base = 8; break;
+                                                       				case 'b': case 'B': base = 2; break;
+                                                       			}
+                                                       		}
+                                                       		convert_to_decimal(yytext, base);
+                                                       	}
 {REAL}[fFmM]?{ID}                                      	|
-[0-9][A-Za-z0-9_]*                                     	{
-                                                                fprintf(stderr, "ERROR at line %d: invalid numeric literal: %s\n", yylineno, yytext);
-                                                                state.hadError = true;
-                                                                return TOKEN(Error);
-                                                        }
+[0-9][A-Za-z0-9_]*                                     	{ throw std::runtime_error ("invalid numeric literal: " + std::string(yytext, yyleng) " at line " + std::to_string(yylineno); }
 
     /* ----- символьные литералы ----- */
 
-\'({ESCAPE}|[^\\'\r\n])*\'                             	{ return parse_character_literal(state, yytext, yyleng); }
-\'[^\r\n']*                                            	{
-                                                                fprintf(stderr, "ERROR at line %d: invalid or unterminated character literal\n", yylineno);
-                                                                state.hadError = true;
-                                                                return TOKEN(Error);
-                                                        }
+\'({ESCAPE}|[^\\'\r\n])*\'                             	{ parse_character_literal(yytext, yyleng); }
+\'[^\r\n']*                                            	{ throw std::runtime_error( "invalid or unterminated character literal at line " + std::to_string(yylineno)); }
 
     /* ----- комментарии ----- */
 
 "//"[^\r\n]*                                           	{ /* Пропускаем комментарий, оставляя перевод строки для отдельного правила */ }
 "(*"                                                   	{
-                                                                state.commentDepth = 1;
-                                                                yy_push_state(MULTILINE_COMMENT);
-                                                        }
-<MULTILINE_COMMENT>"(*"                                	{ ++state.commentDepth; }
+                                                       		commentDepth = 1;
+                                                       		yy_push_state(MULTILINE_COMMENT);
+                                                       	}
+<MULTILINE_COMMENT>"(*"                                	{ ++commentDepth; }
 <MULTILINE_COMMENT>"*)"                                	{
-                                                                if (--state.commentDepth == 0)
-                                                                        yy_pop_state();
-                                                        }
+                                                       		if (--commentDepth == 0)
+                                                       			yy_pop_state();
+                                                       	}
 <MULTILINE_COMMENT>[^(*"\r\n]+                         	{ /* Содержимое комментария */ }
 <MULTILINE_COMMENT>[(*]                                	{ /* Содержимое комментария */ }
 <MULTILINE_COMMENT>{NEWLINE}                           	{
-                                                                if (yyleng == 1 && yytext[0] == '\r')
-                                                                        ++yylineno;
-                                                                return TOKEN(NEWLINE);
-                                                        }
+                                                       		if (yyleng == 1 && yytext[0] == '\r')
+                                                       			++yylineno;
+                                                       		printf("NEWLINE\n");
+                                                       	}
 
     /* ----- обычные строки ----- */
 
     /* Разделители комментариев внутри строк не меняют глубину вложенности */
-<INITIAL,MULTILINE_COMMENT>\"       	{
-                                                                state.stringBuffer.clear();
-                                                                yy_push_state(STRING);
-                                                        }
+<INITIAL,INTERPOLATION_EXPR,MULTILINE_COMMENT>\"       	{
+                                                       		stringBuffer.clear();
+                                                       		yy_push_state(STRING);
+                                                       	}
 <STRING>\"                                             	{
-                                                                yy_pop_state();
-                                                                if (state.commentDepth == 0)
-                                                                        return VALUE_TOKEN(STRING_LITERAL, state.stringBuffer);
-                                                        }
-<STRING>[^\\"]+                                        	{ append_string_text(state, state.stringBuffer, yytext, yyleng); }
+                                                       		yy_pop_state();
+                                                       		if (commentDepth == 0)
+                                                       			std::cout << "STRING_LITERAL: " << stringBuffer << std::endl;
+                                                       	}
+<STRING>[^\\"]+                                        	{ append_string_text(stringBuffer, yytext, yyleng); }
 
     /* ----- интерполированные строки ----- */
+<INTERPOLATION_EXPR>"{"                                	{
+                                                       		++braceStack.back();
+                                                       		printf("LBRACE\n");
+                                                       	}
+<INTERPOLATION_EXPR>"}"                                	{
+                                                       		if (braceStack.back() == 0) {
+                                                       			braceStack.pop_back();
+                                                       			yy_pop_state();
+                                                       			printf("INTERP_EXPR_END\n");
+                                                       		} else {
+                                                       			--braceStack.back();
+                                                       			printf("RBRACE\n");
+                                                       		}
+                                                       	}
 
 \$\"                                                   	{
-                                                                yy_push_state(INTERPOLATED_STRING);
-                                                                return TOKEN(INTERP_START);
-                                                        }
-<INTERPOLATED_STRING>"{{"|"}}"                         	{ return VALUE_TOKEN(INTERP_TEXT, std::string(1, yytext[0])); }
+                                                       		yy_push_state(INTERPOLATED_STRING);
+                                                       		printf("INTERP_START\n");
+                                                       	}
+<INTERPOLATED_STRING>"{{"|"}}"                         	{ printf("INTERP_TEXT: %c\n", yytext[0]); }
 <INTERPOLATED_STRING>"{"                               	{
-                                                                state.braceStack.push_back(0);
-                                                                yy_push_state(INITIAL);
-                                                                return TOKEN(INTERP_EXPR_START);
-                                                        }
-<INTERPOLATED_STRING>"}"                               	{
-                                                                fprintf(stderr, "ERROR at line %d: unmatched closing brace in interpolated string\n", yylineno);
-                                                                state.hadError = true;
-                                                                return TOKEN(Error);
-                                                        }
+                                                       		braceStack.push_back(0);
+                                                       		yy_push_state(INTERPOLATION_EXPR);
+                                                       		printf("INTERP_EXPR_START\n");
+                                                       	}
+<INTERPOLATED_STRING>"}"                               	{ throw std::runtime_error("unmatched closing brace in interpolated string at line " + std::to_string(yylineno)); }
 <INTERPOLATED_STRING>\"                                	{
-                                                                yy_pop_state();
-                                                                return TOKEN(INTERP_END);
-                                                        }
-<INTERPOLATED_STRING>[^\\"{}\r\n]+                     	{ return VALUE_TOKEN(INTERP_TEXT, std::string(yytext, yyleng)); }
+                                                       		yy_pop_state();
+                                                       		printf("INTERP_END\n");
+                                                       	}
+<INTERPOLATED_STRING>[^\\"{}\r\n]+                     	{ printf("INTERP_TEXT: %s\n", yytext); }
 <INTERPOLATED_STRING>{NEWLINE}                         	{
-                                                                if (yyleng == 1 && yytext[0] == '\r')
-                                                                        ++yylineno;
-                                                                return VALUE_TOKEN(INTERP_TEXT, std::string(yytext, yyleng));
-                                                        }
+                                                       		if (yyleng == 1 && yytext[0] == '\r')
+                                                       			++yylineno;
+                                                       		printf("INTERP_TEXT: %s\n", yytext);
+                                                       	}
 
     /* ----- escape-последовательности ----- */
 
 <STRING,INTERPOLATED_STRING>\\{NEWLINE}[ \t]*          	{
-                                                                if (yytext[1] == '\r' && yytext[2] != '\n')
-                                                                        ++yylineno;
-                                                        }
-<STRING>{ESCAPE}                                       	{ parse_string_escape(state, state.stringBuffer, yytext[1]); }
-<INTERPOLATED_STRING>{ESCAPE}                          	{ return parse_template_escape(state, yytext[1]); }
+                                                       		if (yytext[1] == '\r' && yytext[2] != '\n')
+                                                       			++yylineno;
+                                                       	}
+<STRING>{ESCAPE}                                       	{ parse_string_escape(stringBuffer, yytext[1]); }
+<INTERPOLATED_STRING>{ESCAPE}                          	{ parse_template_escape(yytext[1]); }
 <STRING,INTERPOLATED_STRING>\\[^\r\n]                  	|
-<STRING,INTERPOLATED_STRING>\\                         	{
-                                                                fprintf(stderr, "ERROR at line %d: invalid escape sequence: %s\n", yylineno, yytext);
-                                                                state.hadError = true;
-                                                                return TOKEN(Error);
-                                                        }
+<STRING,INTERPOLATED_STRING>\\                         	{ throw std::runtime_error("invalid escape sequence: " + std::string(yytext, yyleng) + " at line " + std::to_string(yylineno)); }
 
     /* ----- пробельные символы, перевод строки и конец ввода ----- */
 
 [ \t\v\f]+                                             	{ /* Пробельные символы */ }
 {NEWLINE}                                              	{
-                                                                if (yyleng == 1 && yytext[0] == '\r')
-                                                                        ++yylineno;
-                                                                return TOKEN(NEWLINE);
-                                                        }
-.                                                      	{
-                                                                fprintf(stderr, "ERROR at line %d: unexpected character: %s\n", yylineno, yytext);
-                                                                state.hadError = true;
-                                                                return TOKEN(Error);
-                                                        }
-<MULTILINE_COMMENT><<EOF>>                             	{
-                                                                fprintf(stderr, "ERROR at line %d: '*)' expected\n", yylineno);
-                                                                state.hadError = true;
-                                                                yyterminate();
-                                                        }
-<STRING,INTERPOLATED_STRING><<EOF>>                    	{
-                                                                fprintf(stderr, "ERROR at line %d: unterminated string literal\n", yylineno);
-                                                                state.hadError = true;
-                                                                yyterminate();
-                                                        }
-<INITIAL><<EOF>>                                        {
-                                                            if (!state.braceStack.empty()) {
-                                                                fprintf(stderr, "ERROR at line %d: unterminated interpolation expression\n", yylineno);
-                                                                state.hadError = true;
-                                                            }
-                                                            yyterminate();
-                                                        }
+                                                       		if (yyleng == 1 && yytext[0] == '\r')
+                                                       			++yylineno;
+                                                       		printf("NEWLINE\n");
+                                                       	}
+.                                                      	{ throw std::runtime_error("Unexpected character '" + std::string(yytext, yyleng) + "' at line " + std::to_string(yylineno)); }
+<MULTILINE_COMMENT><<EOF>>                             	{ throw std::runtime_error("'*)' expected at line " + std::to_string(yylineno)); }
+<STRING,INTERPOLATED_STRING><<EOF>>                    	{ throw std::runtime_error("unterminated string literal at line " + std::to_string(yylineno)); }
+<INTERPOLATION_EXPR><<EOF>>                            	{ throw std::runtime_error("unterminated interpolation expression at line " + std::to_string(yylineno)); }
 
 %%
 
     /* ----- обработка идентификаторов, символов и текста строк ----- */
 
-Token parse_identifier(LexerState& state, const char* text, int length)
+void parse_identifier(const char* text, int length)
 {
     // Проверяем Unicode-символы имени, предварительно выделенного правилом ID
     int offset = 0;
@@ -372,15 +331,16 @@ Token parse_identifier(LexerState& state, const char* text, int length)
     }
 
     if (valid) {
-        return VALUE_TOKEN(IDENTIFIER, std::string(text, length));
+        printf("IDENTIFIER: %.*s\n", length, text);
     } else {
-        fprintf(stderr, "ERROR at line %d: invalid identifier: %.*s\n", yylineno, length, text);
-        state.hadError = true;
-        return TOKEN(Error);
+        throw std::runtime_error(
+            "invalid identifier: " + std::string(text, length) +
+            " at line " + std::to_string(yylineno)
+        );
     }
 }
 
-Token parse_character_literal(LexerState& state, const char* text, int length)
+void parse_character_literal(const char* text, int length)
 {
     // Разбираем содержимое без открывающей и закрывающей кавычек
     int offset = 1;
@@ -391,7 +351,7 @@ Token parse_character_literal(LexerState& state, const char* text, int length)
         if (text[offset] == '\\') {
             // Два байта escape-последовательности обозначают один символ
             std::string value;
-            parse_string_escape(state, value, text[offset + 1]);
+            parse_string_escape(value, text[offset + 1]);
 
             // Не обращаемся к value[0], если escape не удалось декодировать
             if (value.empty()) {
@@ -412,18 +372,18 @@ Token parse_character_literal(LexerState& state, const char* text, int length)
     }
 
     if (!valid || count != 1) {
-        fprintf(stderr, "ERROR at line %d: character literal must contain one UTF-16 code unit\n", yylineno);
-        state.hadError = true;
-        return TOKEN(Error);
+        throw std::runtime_error(
+            "character literal must contain one UTF-16 code unit at line " + std::to_string(yylineno)
+        );
     } else {
         // Формируем UTF-8 для вывода единственного символа
         std::string value;
-        parse_unicode(state, value, cp);
-        return VALUE_TOKEN(CHAR_LITERAL, value);
+        parse_unicode(value, cp);
+        std::cout << "CHAR_LITERAL: " << value << std::endl;
     }
 }
 
-void append_string_text(LexerState& state, std::string& buffer, const char* text, int length)
+void append_string_text(std::string& buffer, const char* text, int length)
 {
     // Проверяем обычный текст; escape обрабатываются отдельными правилами
     int offset = 0;
@@ -445,93 +405,88 @@ void append_string_text(LexerState& state, std::string& buffer, const char* text
     if (valid) {
         buffer.append(text, length);
     } else {
-        fprintf(stderr, "ERROR at line %d: invalid UTF-8 in string\n", yylineno);
-        state.hadError = true;
+        throw std::runtime_error("invalid UTF-8 in string at line " + std::to_string(yylineno));
     }
 }
 
     /* ----- преобразование чисел ----- */
 
-std::string normalize_number(const char* src)
+void strip_underscores(const char* src, char* out, size_t cap)
 {
-    std::string text(src);
-    std::erase(text, '_');
-    return text;
+    if (cap == 0)
+        return;
+    // Удаляем '_', оставляя место для завершающего нуля
+    size_t w = 0;
+    for (size_t r = 0; src[r] && w + 1 < cap; ++r) {
+        if (src[r] != '_')
+            out[w++] = src[r];
+    }
+    out[w] = '\0';
 }
 
-Token convert_to_decimal(LexerState& state, const char* src, int base)
+void convert_to_decimal(const char* src, int base)
 {
-    std::string text = normalize_number(src);
-    std::string suffix;
-    for (std::string_view candidate : {"uy", "us", "ul", "uL", "UL", "un",
-                                      "y", "s", "l", "u", "n", "L", "I"}) {
-        if (text.ends_with(candidate)) {
-            suffix = candidate;
-            text.resize(text.size() - candidate.size());
-            break;
-        }
+    std::vector<char> buf(strlen(src) + 1);
+    strip_underscores(src, buf.data(), buf.size());
+
+    // Bigint сохраняем без преобразования в машинное целое
+    if (buf[strlen(buf.data()) - 1] == 'I') {
+        printf("INT_LITERAL: %s\n", buf.data());
+        return;
     }
 
-    // Для bigint нет стандартного машинного целого достаточной разрядности.
-    if (suffix == "I")
-        return VALUE_TOKEN(INT_LITERAL, text + suffix);
-
-    const char* first = text.data() + (base == 10 ? 0 : 2);
-    const char* last = text.data() + text.size();
-    unsigned long long value = 0;
-    auto result = std::from_chars(first, last, value, base);
-    if (result.ec == std::errc::result_out_of_range) {
-        fprintf(stderr, "ERROR at line %d: integer overflow: %s\n", yylineno, src);
-    } else if (result.ec != std::errc{} || result.ptr != last) {
-        fprintf(stderr, "ERROR at line %d: invalid numeric literal: %s\n", yylineno, src);
+    // Для недесятичных чисел пропускаем префикс основания
+    const char* digits = buf.data() + (base == 10 ? 0 : 2);
+    char* suffix;
+    errno = 0;
+    unsigned long long value = strtoull(digits, &suffix, base);
+    if (errno == ERANGE) {
+        throw std::runtime_error(
+            "integer overflow: " + std::string(src) + " at line " + std::to_string(yylineno)
+        );
     } else {
-        return Token{TokenKind::INT_LITERAL, "INT_LITERAL", value, suffix};
+        // Суффикс сохраняем для проверки типа
+        printf("INT_LITERAL: %llu%s\n", value, suffix);
     }
-    state.hadError = true;
-    return TOKEN(Error);
 }
 
-Token convert_to_float(LexerState& state, const char* src)
+void convert_to_float(const char* src)
 {
-    std::string text = normalize_number(src);
-    char suffix = text.back();
+    std::vector<char> buf(strlen(src) + 1);
+    strip_underscores(src, buf.data(), buf.size());
+    size_t length = strlen(buf.data());
+    char suffix = buf[length - 1];
 
-    // Decimal сохраняет точную запись и не проходит через double.
-    if (suffix == 'm' || suffix == 'M')
-        return VALUE_TOKEN(DECIMAL_LITERAL, text);
+    // Decimal сохраняем без потери точности при преобразовании в double
+    if (suffix == 'm' || suffix == 'M') {
+        printf("DECIMAL_LITERAL: %s\n", buf.data());
+        return;
+    }
 
+    // Суффикс определяет точность преобразования
     bool single = suffix == 'f' || suffix == 'F';
     if (single)
-        text.pop_back();
-
-    // Тип value выбирает стандартное преобразование сразу в float или double.
-    auto parse = [&](auto value, TokenKind kind, const char* name) -> Token {
-        const char* last = text.data() + text.size();
-        auto result = std::from_chars(text.data(), last, value);
-        if (result.ec == std::errc::result_out_of_range) {
-            fprintf(stderr, "ERROR at line %d: floating-point value out of range: %s\n", yylineno, src);
-        } else if (result.ec != std::errc{} || result.ptr != last) {
-            fprintf(stderr, "ERROR at line %d: invalid numeric literal: %s\n", yylineno, src);
-        } else {
-            return Token{kind, name, value, {}};
-        }
-        state.hadError = true;
-        return TOKEN(Error);
-    };
-
-    return single ? parse(float{}, TokenKind::FLOAT32_LITERAL, "FLOAT32_LITERAL")
-                  : parse(double{}, TokenKind::FLOAT64_LITERAL, "FLOAT64_LITERAL");
+        buf[length - 1] = '\0';
+    errno = 0;
+    double value = single ? strtof(buf.data(), NULL) : strtod(buf.data(), NULL);
+    if (errno == ERANGE) {
+        throw std::runtime_error(
+            "floating-point value out of range: " + std::string(src) +
+            " at line " + std::to_string(yylineno)
+        );
+    } else {
+        printf("%s: %.*g\n", single ? "FLOAT32_LITERAL" : "FLOAT64_LITERAL",
+               single ? 9 : 17, value);
+    }
 }
 
     /* ----- Unicode и escape-последовательности ----- */
 
-void parse_unicode(LexerState& state, std::string& buf, long cp)
+void parse_unicode(std::string& buf, long cp)
 {
     // Исключаем недопустимые коды и отдельные суррогаты UTF-16
     if (cp < 0 || cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff)) {
-        fprintf(stderr, "ERROR at line %d: Unicode code point is out of range\n", yylineno);
-        state.hadError = true;
-        return;
+        throw std::runtime_error("Unicode code point is out of range at line " + std::to_string(yylineno));
     }
 
     // Один Unicode-символ занимает до четырёх байтов UTF-8
@@ -541,7 +496,7 @@ void parse_unicode(LexerState& state, std::string& buf, long cp)
     buf.append(text, length);
 }
 
-void parse_string_escape(LexerState& state, std::string& buf, char c)
+void parse_string_escape(std::string& buf, char c)
 {
     // Добавляем значение только поддерживаемой escape-последовательности
     switch (c) {
@@ -550,37 +505,20 @@ void parse_string_escape(LexerState& state, std::string& buf, char c)
         case 'v': buf += '\v'; break;
         case '\\': case '"': case '\'': buf += c; break;
         default:
-            fprintf(stderr, "ERROR at line %d: invalid escape sequence: \\%c\n", yylineno, c);
-            state.hadError = true;
+            throw std::runtime_error(
+                "invalid escape sequence: \\" + std::string(1, c) +
+                " at line " + std::to_string(yylineno)
+            );
     }
 }
 
-Token parse_template_escape(LexerState& state, char c)
+void parse_template_escape(char c)
 {
+    // Используем тот же декодер, но выводим отдельный сегмент интерполяции
     std::string value;
-    parse_string_escape(state, value, c);
-    if (value.empty())
-        return TOKEN(Error);
-    return VALUE_TOKEN(INTERP_TEXT, value);
-}
-
-#ifndef FSHARP_LEXER_NO_MAIN
-// Печать остаётся в самостоятельной программе; yylex возвращает токен с данными.
-void print_token(const Token& token)
-{
-    std::cout << token.name;
-    std::visit([](const auto& value) {
-        using Value = std::decay_t<decltype(value)>;
-        if constexpr (!std::is_same_v<Value, std::monostate>) {
-            std::cout << ": ";
-            if constexpr (std::is_same_v<Value, float>)
-                std::cout << std::setprecision(9);
-            else if constexpr (std::is_same_v<Value, double>)
-                std::cout << std::setprecision(17);
-            std::cout << value;
-        }
-    }, token.value);
-    std::cout << token.suffix << '\n';
+    parse_string_escape(value, c);
+    if (!value.empty())
+        std::cout << "INTERP_TEXT: " << value << std::endl;
 }
 
 int main(int argc, char* argv[])
@@ -598,15 +536,16 @@ int main(int argc, char* argv[])
         }
     }
 
-    LexerState state;
-    for (Token token = yylex(state); token.kind != TokenKind::End; token = yylex(state)) {
-        if (token.kind != TokenKind::Error)
-            print_token(token);
+    int result = 0;
+    try {
+        yylex();
+    } catch (const std::exception& error) {
+        fprintf(stderr, "ERROR: %s\n", error.what());
+        result = 1;
     }
 
     if (argc == 2)
         fclose(yyin);
     yylex_destroy();
-    return state.hadError ? 1 : 0;
+    return result;
 }
-#endif

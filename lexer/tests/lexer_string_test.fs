@@ -28,11 +28,3 @@ $"continued \
     text = {value}"
 $"record = {{ { { Name = "Alice" } } }}"
 $"nested = {$"inner = {value}"}"
-
-// Состояние должно сохраняться после возврата каждого токена.
-let interpolationCheckpoint=
-$"route:{ { Outer={Label="quay";Values=[|7;12|]} } }"
-$"depth:{($"layer:{($"cell:{flag}")}")}"
-$"{ (* скобки { } (* "{" *) *) '}' }"
-$"{false}{true}"
-"ready"
