@@ -1,0 +1,2 @@
+# cmd.exe requires CRLF for reliable CALL label lookup
+/tests/lexer/run_tests.bat text eol=crlf

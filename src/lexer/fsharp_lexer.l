@@ -1,11 +1,8 @@
 %option stack
 %option noyywrap
 %option never-interactive
+%option nounistd
 %option yylineno
-
-%top{
-    #include <stdint.h>
-}
 
 %x MULTILINE_COMMENT
 %x STRING
@@ -27,8 +24,6 @@ ESCAPE          \\[ntv\\\"']
 NEWLINE         (\r\n|\r|\n)
 
 %{
-    #define YY_NO_UNISTD_H
-
     #include <stdio.h>
     #include <stdlib.h>
     #include <string.h>
@@ -195,7 +190,7 @@ false                                                  	{ printf("BOOL_FALSE: %s
                                                        		convert_to_decimal(yytext, base);
                                                        	}
 {REAL}[fFmM]?{ID}                                      	|
-[0-9][A-Za-z0-9_]*                                     	{ throw std::runtime_error ("invalid numeric literal: " + std::string(yytext, yyleng) " at line " + std::to_string(yylineno); }
+[0-9][A-Za-z0-9_]*                                     	{ throw std::runtime_error ("invalid numeric literal: " + std::string(yytext, yyleng) + " at line " + std::to_string(yylineno)); }
 
     /* ----- символьные литералы ----- */
 

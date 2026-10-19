@@ -1,0 +1,8 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="lexer/lexer.vcxproj" Id="10cad284-1824-4fe9-b293-1dd153b3b3a5" />
+  <Project Path="parser/parser.vcxproj" Id="0f664602-1e1e-4822-95cd-4302ee9d7041" />
+</Solution>

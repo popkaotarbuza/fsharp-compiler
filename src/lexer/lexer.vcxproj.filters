@@ -15,22 +15,13 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="lexer\fsharp_lexer.l">
-      <Filter>Исходные файлы</Filter>
-    </None>
-    <None Include="lexer\README.md" />
-    <None Include="test.fs">
+    <None Include="fsharp_lexer.l">
       <Filter>Исходные файлы</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="lexer\lex.yy.cpp">
+    <ClCompile Include="lex.yy.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="unistd.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

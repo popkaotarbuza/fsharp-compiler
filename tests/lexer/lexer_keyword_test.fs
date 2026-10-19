@@ -5,5 +5,4 @@ match member module mutable namespace new null of open or override private
 public rec return static struct then to true try type upcast use val
 void when while with yield
 
-use! yield! return!
 select

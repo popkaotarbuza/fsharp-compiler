@@ -18,22 +18,11 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
-  <ItemGroup>
-    <None Include="lexer\fsharp_lexer.l" />
-    <None Include="lexer\README.md" />
-    <None Include="test.fs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="lexer\lex.yy.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="unistd.h" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{13f83036-118e-405c-a22c-3b891943b207}</ProjectGuid>
-    <RootNamespace>fsharpcompiler</RootNamespace>
+    <ProjectGuid>{0f664602-1e1e-4822-95cd-4302ee9d7041}</ProjectGuid>
+    <RootNamespace>parser</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -149,6 +138,16 @@
       <EnableSegmentHeap>true</EnableSegmentHeap>
     </Manifest>
   </ItemDefinitionGroup>
+  <ItemGroup>
+    <None Include="grammar.y" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="grammar_handler.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="grammar_handler.hpp" />
+    <ClInclude Include="nodes.hpp" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

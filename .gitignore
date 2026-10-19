@@ -19,7 +19,7 @@ x86/
 *.exe
 
 # Generated lexer test report
-lexer/tests/test_report.txt
+tests/lexer/test_report.txt
 
 # Исполняемые файлы
 win_flex.exe
